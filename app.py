@@ -1,88 +1,120 @@
 import streamlit as st
 import time
 
-# --- CONFIGURAÇÃO DA PÁGINA (MOBILE FIRST) ---
-st.set_page_config(page_title="GOAT TV - CT", page_icon="⚽", layout="centered")
+# --- 1. CONFIGURAÇÃO DA PÁGINA ---
+st.set_page_config(page_title="GOAT TV - PORTAL CT", page_icon="⚽", layout="centered")
 
-# --- ESTADOS DO SISTEMA ---
+# CSS para transformar botões em "quadradinhos" estilo App Mobile
+st.markdown("""
+    <style>
+    div.stButton > button:first-child {
+        height: 100px;
+        white-space: normal;
+        font-weight: bold;
+        border-radius: 15px;
+        border: 2px solid #4CAF50;
+        background-color: #1E1E1E;
+        color: white;
+    }
+    div.stButton > button:hover {
+        border: 2px solid #FFD700;
+        color: #FFD700;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
+# --- 2. ESTADOS DO SISTEMA (MEMÓRIA) ---
 if 'pagina' not in st.session_state:
     st.session_state.pagina = 'login'
 if 'arquetipo' not in st.session_state:
     st.session_state.arquetipo = None
 
-# --- FUNÇÃO DE CALIBRAGEM PROPORCIONAL ---
-def calcular_evolucao_equivalente(score):
-    if score >= 90:
-        return 3, 3  # Elite: Sobe 3, Desce 3
-    elif score >= 70:
-        return 1, 1  # Padrão: Sobe 1, Desce 1
-    else:
-        return 0, 0  # Insuficiente: Nada muda
+# --- 3. LÓGICA DE EVOLUÇÃO PROPORCIONAL (PES 2020) ---
+def calcular_evolucao(score):
+    if score >= 90: return 3, 3  # Nível Elite
+    elif score >= 70: return 1, 1 # Nível Padrão
+    else: return 0, 0           # Insuficiente
 
-# --- 1. TELA DE LOGIN ---
+# --- 4. TELA DE LOGIN ---
 if st.session_state.pagina == 'login':
-    st.title("🛡️ PORTAL GOAT TV")
-    st.subheader("Acesso ao Centro de Treinamento")
+    st.title("🛡️ GOAT TV - LOGIN")
+    st.write("Bem-vindo ao Centro de Treinamento Digital")
     
-    pin = st.text_input("Insira seu PIN de Atleta:", type="password")
+    pin = st.text_input("PIN de Atleta:", type="password")
     
-    if st.button("ENTRAR NO CT", use_container_width=True):
+    if st.button("ACESSAR PORTAL", use_container_width=True):
         if pin == "2026": 
             st.session_state.pagina = 'hub'
             st.rerun()
         else:
-            st.error("PIN Incorreto. Tente novamente.")
+            st.error("PIN incorreto! Verifique com o Comissário.")
 
-# --- 2. HUB DE ARQUÉTIPOS (MENU PRINCIPAL) ---
+# --- 5. HUB DE ARQUÉTIPOS (O MENU EM GRADE) ---
 elif st.session_state.pagina == 'hub':
     st.title("🏟️ HUB DE ARQUÉTIPOS")
     st.write("Selecione sua especialidade para treinar:")
-    
-    # Lista dos 12 Arquétipos Oficiais
-    arquetipos_lista = [
-        "Pivô", "Finalizador", "Ponta", "2º Atacante",
-        "Maestro", "Motorzinho", "Pitbull", "Organizador",
-        "Muralha", "Zagueiro Técnico", "Lateral Ala", "Goleiro"
-    ]
-    
-    # Criando botões em duas colunas para o celular
-    col1, col2 = st.columns(2)
-    for i, nome in enumerate(arquetipos_lista):
-        target_col = col1 if i % 2 == 0 else col2
-        if target_col.button(f"➔ {nome}", use_container_width=True):
-            st.session_state.arquetipo = nome
-            st.session_state.pagina = 'treino'
-            st.rerun()
 
-# --- 3. SALA DE TREINO DINÂMICA ---
+    arqs = ["Pivô", "Finalizador", "Ponta", "2º Atacante", 
+            "Maestro", "Motorzinho", "Pitbull", "Organizador", 
+            "Muralha", "Zagueiro Técnico", "Lateral Ala", "Goleiro"]
+
+    # Grade de 3 colunas para visual mobile
+    for i in range(0, len(arqs), 3):
+        cols = st.columns(3)
+        for j in range(3):
+            if i + j < len(arqs):
+                nome = arqs[i + j]
+                if cols[j].button(nome, use_container_width=True):
+                    st.session_state.arquetipo = nome
+                    st.session_state.pagina = 'treino'
+                    st.rerun()
+
+# --- 6. SALA DE TREINO DINÂMICA (FOCO PES 2020) ---
 elif st.session_state.pagina == 'treino':
     arq = st.session_state.arquetipo
     st.title(f"🏠 SALA DE TREINO: {arq}")
-    
-    # --- LÓGICA ESPECÍFICA: GOLEIRO ---
+
+    # --- ATUALIZAÇÃO: GOLEIRO (SISTEMA COMPLETO) ---
     if arq == "Goleiro":
-        st.subheader("Treino de Reflexo e Alcance")
-        st.info("Simule abaixo o desempenho do seu mini-game (em breve interativo).")
+        st.subheader("🧤 Treinamento de Goleiros PES 2020")
         
-        # Simulador de performance (Slider)
-        score_obtido = st.slider("Seu Desempenho (%)", 0, 100, 70)
-        
-        if st.button("FINALIZAR E CALIBRAR", use_container_width=True):
-            sobe, desce = calcular_evolucao_equivalente(score_obtido)
-            
-            if sobe > 0:
-                st.success(f"🔥 Treino Validado! Score: {score_obtido}%")
-                st.markdown(f"**📈 GANHOS:** +{sobe} em Reflexo / Alcance")
-                st.markdown(f"**📉 PERDAS:** -{desce} em Velocidade / Passe")
-            else:
-                st.warning(f"⚠️ Treino Insuficiente (Abaixo de 70%). Nada foi alterado.")
+        aba1, aba2, aba3 = st.tabs(["🎯 Reflexos", "🚀 Reposição", "🧠 Consciência"])
 
-    # --- SALAS EM CONSTRUÇÃO (OUTROS ARQUÉTIPOS) ---
+        with aba1:
+            st.write("### Foco: Reflexos e Pênaltis")
+            st.info("Aumenta: Reflexos do GL e Defensor de Pênaltis | Diminui: Chute Rasteiro")
+            score_ref = st.slider("Desempenho no Teste de Reação (%)", 0, 100, 70, key="gk_ref")
+            if st.button("REGISTRAR REFLEXO", use_container_width=True):
+                s, d = calcular_evolucao(score_ref)
+                if s > 0:
+                    st.success(f"📈 SUBIU: +{s} Reflexos / +{s} Defesa de Pênaltis | 📉 CAIU: -{d} Chute Rasteiro")
+                else: st.warning("Treino insuficiente.")
+
+        with aba2:
+            st.write("### Foco: Reposição (Lançamentos)")
+            st.info("Aumenta: Força de Chute e Chute Rasteiro | Diminui: Firmeza")
+            score_rep = st.slider("Precisão do Lançamento (%)", 0, 100, 70, key="gk_rep")
+            if st.button("REGISTRAR REPOSIÇÃO", use_container_width=True):
+                s, d = calcular_evolucao(score_rep)
+                if s > 0:
+                    st.success(f"🚀 SUBIU: +{s} Força de Chute / +{s} Chute Rasteiro | 📉 CAIU: -{d} Firmeza")
+                else: st.warning("Ajuste a pontaria!")
+
+        with aba3:
+            st.write("### Foco: Consciência e Saída")
+            st.info("Aumenta: Consciência de GO e Talento GL | Diminui: Alcance")
+            score_con = st.slider("Eficácia de Posicionamento (%)", 0, 100, 70, key="gk_con")
+            if st.button("REGISTRAR POSICIONAMENTO", use_container_width=True):
+                s, d = calcular_evolucao(score_con)
+                if s > 0:
+                    st.success(f"🧠 SUBIU: +{s} Consciência GO / +{s} Talento GL | 📉 CAIU: -{d} Alcance")
+                else: st.warning("Treine o seu posicionamento!")
+
+    # --- OUTRAS SALAS (PENDENTES) ---
     else:
-        st.warning(f"A sala do {arq} está sendo calibrada pelo Comissário.")
-        st.write("Em breve, os mini-games de aumento e diminuição estarão ativos aqui.")
+        st.info(f"Sala do {arq} em calibração.")
+        st.write("Aguardando as fichas técnicas do PES 2020 para este arquétipo.")
 
-    # Botão de Voltar
     if st.button("⬅️ VOLTAR AO HUB", use_container_width=True):
         st.session_state.pagina = 'hub'
         st.rerun()
