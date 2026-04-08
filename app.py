@@ -1,61 +1,88 @@
 import streamlit as st
+import time
 
-# 1. Configuração de Elite
-st.set_page_config(page_title="CT GOAT TV - Portal Global", page_icon="⚽", layout="centered")
+# --- CONFIGURAÇÃO DA PÁGINA (MOBILE FIRST) ---
+st.set_page_config(page_title="GOAT TV - CT", page_icon="⚽", layout="centered")
 
-# 2. Estilo Visual (Neon/Dark Mode)
-st.markdown("""
-    <style>
-    .main { background-color: #0e1117; color: white; }
-    .stButton>button { width: 100%; background-color: #00ff00; color: black; font-weight: bold; border-radius: 10px; }
-    .stTextInput>div>div>input { background-color: #1a1c23; color: #00ff00; border: 1px solid #00ff00; }
-    h2, h3 { color: #00ff00; text-align: center; font-family: 'Courier New', Courier, monospace; }
-    </style>
-    """, unsafe_allow_html=True)
+# --- ESTADOS DO SISTEMA ---
+if 'pagina' not in st.session_state:
+    st.session_state.pagina = 'login'
+if 'arquetipo' not in st.session_state:
+    st.session_state.arquetipo = None
 
-st.markdown("<h2>🏟️ CT VIRTUAL GOAT TV</h2>", unsafe_allow_html=True)
-st.markdown("<p style='text-align: center;'>Portal de Treinamento e Evolução de Atletas</p>", unsafe_allow_html=True)
+# --- FUNÇÃO DE CALIBRAGEM PROPORCIONAL ---
+def calcular_evolucao_equivalente(score):
+    if score >= 90:
+        return 3, 3  # Elite: Sobe 3, Desce 3
+    elif score >= 70:
+        return 1, 1  # Padrão: Sobe 1, Desce 1
+    else:
+        return 0, 0  # Insuficiente: Nada muda
 
-# --- ÁREA DE LOGIN ---
-with st.container():
-    st.write("---")
-    player_id = st.text_input("🆔 ID DO ATLETA (Ex: GT-BR-01)", placeholder="Digite seu ID")
-    pin = st.text_input("🔑 PIN DE ACESSO", type="password", placeholder="****")
-
-    # Botão de Entrada
-    if st.button("ENTRAR NO CT"):
-        # Lógica de Teste (Conta Mestre)
-        if player_id == "GT-ADMIN" and pin == "2026":
-            st.success("🟢 ACESSO AUTORIZADO! BEM-VINDO, COMISSÁRIO.")
-            st.write("---")
-            
-            # SELEÇÃO DE ARQUÉTIPOS (Os 14 Tipos)
-            arquetipo = st.selectbox("🎯 SELECIONE SEU ARQUÉTIPO PARA TREINAR:", 
-                ["Maestro (MC)", "Muralha (ZAG)", "Pitbull (VOL)", "Ponta Raio (PE/PD)", 
-                 "Finalizador (CA)", "Pivô (CA)", "Goleiro Líbero (GL)", "Garçom (MAT)", 
-                 "Lateral Moderno (LAT)", "Coringa (UTL)", "Falso 9", "Destruidor", "Orquestrador", "Tanque"])
-            
-            st.info(f"Treino disponível para: **{arquetipo}**")
-            
-            if st.button("🚀 INICIAR SESSÃO DE TREINO"):
-                st.warning("⚠️ Carregando simulador de lances... Prepare o Print do resultado!")
-        else:
-            st.error("🔴 ID ou PIN incorretos. Tente novamente.")
-
-# --- ÁREA DE RECUPERAÇÃO (ESQUECI A SENHA) ---
-st.write("---")
-with st.expander("🔓 Esqueceu seu PIN? (Recuperação Automática)"):
-    st.write("Informe seus dados de segurança cadastrados:")
-    rec_id = st.text_input("Confirmar seu ID", key="rec_id")
-    safe_word = st.text_input("Sua Palavra-Chave de Segurança", key="safe")
+# --- 1. TELA DE LOGIN ---
+if st.session_state.pagina == 'login':
+    st.title("🛡️ PORTAL GOAT TV")
+    st.subheader("Acesso ao Centro de Treinamento")
     
-    if st.button("RECURERAR MEU PIN"):
-        # Lógica de Teste para a Conta Mestre
-        if rec_id == "GT-ADMIN" and safe_word.upper() == "GOAT":
-            st.success("✅ Identidade Confirmada!")
-            st.info("Seu PIN de acesso é: **2026**")
+    pin = st.text_input("Insira seu PIN de Atleta:", type="password")
+    
+    if st.button("ENTRAR NO CT", use_container_width=True):
+        if pin == "2026": 
+            st.session_state.pagina = 'hub'
+            st.rerun()
         else:
-            st.error("❌ Dados de segurança não conferem. Procure a gerência da Goat TV.")
+            st.error("PIN Incorreto. Tente novamente.")
 
-st.write("---")
-st.caption("© 2026 Goat TV Global Federation - Sistema de Evolução Pro")
+# --- 2. HUB DE ARQUÉTIPOS (MENU PRINCIPAL) ---
+elif st.session_state.pagina == 'hub':
+    st.title("🏟️ HUB DE ARQUÉTIPOS")
+    st.write("Selecione sua especialidade para treinar:")
+    
+    # Lista dos 12 Arquétipos Oficiais
+    arquetipos_lista = [
+        "Pivô", "Finalizador", "Ponta", "2º Atacante",
+        "Maestro", "Motorzinho", "Pitbull", "Organizador",
+        "Muralha", "Zagueiro Técnico", "Lateral Ala", "Goleiro"
+    ]
+    
+    # Criando botões em duas colunas para o celular
+    col1, col2 = st.columns(2)
+    for i, nome in enumerate(arquetipos_lista):
+        target_col = col1 if i % 2 == 0 else col2
+        if target_col.button(f"➔ {nome}", use_container_width=True):
+            st.session_state.arquetipo = nome
+            st.session_state.pagina = 'treino'
+            st.rerun()
+
+# --- 3. SALA DE TREINO DINÂMICA ---
+elif st.session_state.pagina == 'treino':
+    arq = st.session_state.arquetipo
+    st.title(f"🏠 SALA DE TREINO: {arq}")
+    
+    # --- LÓGICA ESPECÍFICA: GOLEIRO ---
+    if arq == "Goleiro":
+        st.subheader("Treino de Reflexo e Alcance")
+        st.info("Simule abaixo o desempenho do seu mini-game (em breve interativo).")
+        
+        # Simulador de performance (Slider)
+        score_obtido = st.slider("Seu Desempenho (%)", 0, 100, 70)
+        
+        if st.button("FINALIZAR E CALIBRAR", use_container_width=True):
+            sobe, desce = calcular_evolucao_equivalente(score_obtido)
+            
+            if sobe > 0:
+                st.success(f"🔥 Treino Validado! Score: {score_obtido}%")
+                st.markdown(f"**📈 GANHOS:** +{sobe} em Reflexo / Alcance")
+                st.markdown(f"**📉 PERDAS:** -{desce} em Velocidade / Passe")
+            else:
+                st.warning(f"⚠️ Treino Insuficiente (Abaixo de 70%). Nada foi alterado.")
+
+    # --- SALAS EM CONSTRUÇÃO (OUTROS ARQUÉTIPOS) ---
+    else:
+        st.warning(f"A sala do {arq} está sendo calibrada pelo Comissário.")
+        st.write("Em breve, os mini-games de aumento e diminuição estarão ativos aqui.")
+
+    # Botão de Voltar
+    if st.button("⬅️ VOLTAR AO HUB", use_container_width=True):
+        st.session_state.pagina = 'hub'
+        st.rerun()
