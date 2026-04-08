@@ -1,139 +1,119 @@
 import streamlit as st
-import streamlit.components.v1 as components
+import time
+import random
 
-# --- 1. CONFIGURAÇÃO DA PÁGINA ---
-st.set_page_config(page_title="GOAT TV - CT", page_icon="⚽", layout="centered")
+# --- CONFIGURAÇÃO DA PÁGINA ---
+st.set_page_config(page_title="GOAT TV - CT DIGITAL", layout="centered")
 
-# --- 2. MEMÓRIA DO SISTEMA ---
-if 'pagina' not in st.session_state:
-    st.session_state.pagina = 'login'
-if 'arquetipo' not in st.session_state:
-    st.session_state.arquetipo = None
+# CSS para deixar os botões grandes e quadrados no celular
+st.markdown("""
+    <style>
+    div.stButton > button:first-child {
+        height: 110px;
+        font-size: 24px;
+        border-radius: 15px;
+        background-color: #1E1E1E;
+        color: white;
+        border: 2px solid #333;
+    }
+    /* Destaque para a bolinha */
+    div.stButton > button:active, div.stButton > button:focus {
+        border-color: #4CAF50;
+    }
+    </style>
+""", unsafe_allow_html=True)
 
-# Captura automática de resultados vindos da URL
-params = st.query_params
-if "ms" in params:
-    st.session_state.resultado_atual = int(params["ms"])
-    st.session_state.pagina = 'treino' # Garante que ele continue na sala
+# --- MEMÓRIA DO SISTEMA ---
+if 'pagina' not in st.session_state: st.session_state.pagina = 'login'
+if 'arquetipo' not in st.session_state: st.session_state.arquetipo = None
+if 'game_active' not in st.session_state: st.session_state.game_active = False
+if 'rodada' not in st.session_state: st.session_state.rodada = 0
+if 'target' not in st.session_state: st.session_state.target = random.randint(0, 8)
+if 'tempos' not in st.session_state: st.session_state.tempos = []
+if 'start_time' not in st.session_state: st.session_state.start_time = 0
 
-# --- 3. LÓGICA DE EVOLUÇÃO ---
-def calcular_evolucao(media_ms):
-    if media_ms < 400: return 3, 3   # Elite
-    elif media_ms < 600: return 1, 1 # Padrão
-    else: return 0, 0               # Lento
+def calcular_evolucao(media):
+    if media < 450: return 3, 3 # Elite
+    elif media < 650: return 1, 1 # Padrão
+    else: return 0, 0
 
-# --- 4. TELA DE LOGIN ---
+# --- TELA DE LOGIN ---
 if st.session_state.pagina == 'login':
     st.title("🛡️ PORTAL GOAT TV")
     pin = st.text_input("PIN de Atleta:", type="password")
-    if st.button("ENTRAR NO CT", use_container_width=True):
+    if st.button("ACESSAR CT", use_container_width=True):
         if pin == "2026": 
             st.session_state.pagina = 'hub'
             st.rerun()
 
-# --- 5. HUB DE ARQUÉTIPOS ---
+# --- HUB DE ARQUÉTIPOS ---
 elif st.session_state.pagina == 'hub':
     st.title("🏟️ HUB DE ARQUÉTIPOS")
     arqs = ["Pivô", "Finalizador", "Ponta", "2º Atacante", "Maestro", "Motorzinho", 
             "Pitbull", "Organizador", "Muralha", "Zagueiro Técnico", "Lateral Ala", "Goleiro"]
     
-    col1, col2 = st.columns(2)
+    cols = st.columns(2)
     for i, nome in enumerate(arqs):
-        with [col1, col2][i % 2]:
-            if st.button(f"➔ {nome}", use_container_width=True):
-                st.session_state.arquetipo = nome
-                st.session_state.pagina = 'treino'
-                st.session_state.resultado_atual = None # Limpa treino anterior
-                st.rerun()
+        if cols[i%2].button(f"➔ {nome}", use_container_width=True):
+            st.session_state.arquetipo = nome
+            st.session_state.pagina = 'treino'
+            st.session_state.game_active = False
+            st.rerun()
 
-# --- 6. SALA DE TREINO (O RETORNO DA BOLINHA) ---
+# --- SALA DE TREINO (REFLEXO 3x3) ---
 elif st.session_state.pagina == 'treino':
     st.title(f"🏠 SALA: {st.session_state.arquetipo}")
 
     if st.session_state.arquetipo == "Goleiro":
-        st.subheader("🎯 Teste de Reflexo Ninja")
+        st.subheader("🎯 Reflexo Ninja (Grade 3x3)")
         
-        # O JOGO EM JAVASCRIPT (RANDOMIZADO E ANTI-FRAUDE)
-        game_html = """
-        <div id="box" style="height:350px; width:100%; border:3px solid #4CAF50; position:relative; background:#111; overflow:hidden; border-radius:15px; display:flex; justify-content:center; align-items:center;">
-            <div id="ball" style="width:55px; height:55px; background:red; border-radius:50%; position:absolute; display:none; cursor:pointer; box-shadow: 0 0 15px red;"></div>
-            <div id="ui">
-                <button id="start" style="padding:15px 30px; font-size:18px; background:#4CAF50; color:white; border:none; border-radius:10px; cursor:pointer; font-weight:bold;">INICIAR TESTE</button>
-                <p id="info" style="color:white; font-family:sans-serif; text-align:center;"></p>
-            </div>
-        </div>
-
-        <script>
-            const ball = document.getElementById('ball');
-            const startBtn = document.getElementById('start');
-            const info = document.getElementById('info');
-            const box = document.getElementById('box');
-            let times = [];
-            let start;
-            let count = 0;
-
-            function play() {
-                if (count >= 5) {
-                    const avg = Math.round(times.reduce((a, b) => a + b, 0) / 5);
-                    info.innerHTML = "Média: " + avg + "ms<br><br><button onclick='sync(" + avg + ")' style='padding:10px; background:#FFD700; border:none; border-radius:5px; font-weight:bold; cursor:pointer;'>CONFIRMAR E SINCRONIZAR</button>";
-                    ball.style.display = 'none';
-                    return;
-                }
-                ball.style.display = 'none';
-                // Delay aleatório para não ter "spam"
-                setTimeout(() => {
-                    const x = Math.random() * (box.offsetWidth - 60);
-                    const y = Math.random() * (box.offsetHeight - 60);
-                    ball.style.left = x + 'px';
-                    ball.style.top = y + 'px';
-                    ball.style.display = 'block';
-                    start = Date.now();
-                }, 500 + Math.random() * 1000);
-            }
-
-            startBtn.onclick = () => {
-                count = 0; times = [];
-                startBtn.style.display = 'none';
-                info.innerHTML = "Prepare-se...";
-                play();
-            };
-
-            ball.onclick = () => {
-                times.push(Date.now() - start);
-                count++;
-                play();
-            };
-
-            function sync(val) {
-                const url = new URL(window.parent.location.href);
-                url.searchParams.set('ms', val);
-                window.parent.location.href = url.href;
-            }
-        </script>
-        """
-        components.html(game_html, height=450)
-
-        # Processamento do Resultado Sincronizado
-        if "ms" in params:
-            media = int(params["ms"])
-            s, d = calcular_evolucao(media)
-            st.divider()
-            if s > 0:
-                st.success(f"✅ TREINO VALIDADO: {media}ms")
-                st.write(f"📈 SUBIU: +{s} Reflexo | 📉 CAIU: -{d} Chute Rasteiro")
-                if st.button("SALVAR E SAIR"):
-                    st.query_params.clear()
-                    st.session_state.pagina = 'hub'
-                    st.rerun()
-            else:
-                st.error(f"❌ Média {media}ms muito lenta. Tente novamente!")
-                if st.button("REFAZER TESTE"):
-                    st.query_params.clear()
-                    st.rerun()
+        if not st.session_state.game_active:
+            st.info("A bolinha 🔴 aparecerá em um dos 9 quadrados. Clique nela 5 vezes o mais rápido possível!")
+            if st.button("🚀 INICIAR TREINO", use_container_width=True):
+                st.session_state.game_active = True
+                st.session_state.rodada = 1
+                st.session_state.tempos = []
+                st.session_state.start_time = time.time()
+                st.session_state.target = random.randint(0, 8)
+                st.rerun()
+        
+        elif st.session_state.rodada <= 5:
+            st.write(f"**Rodada: {st.session_state.rodada} / 5**")
+            
+            # Criando a grade 3x3
+            for r in range(3):
+                cols = st.columns(3)
+                for c in range(3):
+                    idx = r * 3 + c
+                    label = "🔴" if idx == st.session_state.target else ""
+                    
+                    if cols[c].button(label, key=f"btn_{idx}", use_container_width=True):
+                        if idx == st.session_state.target:
+                            # Acertou a bolinha!
+                            fim = time.time()
+                            st.session_state.tempos.append((fim - st.session_state.start_time) * 1000)
+                            st.session_state.rodada += 1
+                            st.session_state.target = random.randint(0, 8)
+                            st.session_state.start_time = time.time()
+                            st.rerun()
+        
         else:
-            st.info("Aguardando sincronização do resultado...")
+            # FIM DO JOGO
+            media = int(sum(st.session_state.tempos) / 5)
+            st.success(f"🏁 FIM DE TREINO! Média: {media}ms")
+            
+            s, d = calcular_evolucao(media)
+            if s > 0:
+                st.balloons()
+                st.markdown(f"### ✅ FICHA PES 2020: +{s} Reflexo | -{d} Chute Rasteiro")
+            else:
+                st.error("❌ Muito lento! Tente novamente.")
+            
+            if st.button("REFAZER TESTE"):
+                st.session_state.game_active = False
+                st.rerun()
 
     if st.button("⬅️ VOLTAR AO HUB", use_container_width=True):
-        st.query_params.clear()
+        st.session_state.game_active = False
         st.session_state.pagina = 'hub'
         st.rerun()
