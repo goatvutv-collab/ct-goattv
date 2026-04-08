@@ -1,93 +1,83 @@
 import streamlit as st
 import streamlit.components.v1 as components
 
-# --- 1. ESTILO GOAT TV (CSS PERSONALIZADO) ---
+# --- 1. ESTILO VISUAL (DARK & GOLD) ---
 st.set_page_config(page_title="GOAT TV - CT", page_icon="⚽", layout="centered")
 
 st.markdown("""
     <style>
-    /* Fundo e Texto Geral */
     .stApp { background-color: #0E1117; color: #FFFFFF; }
-    
-    /* Customização dos Botões do Hub */
     div.stButton > button:first-child {
-        height: 120px;
-        background: linear-gradient(145deg, #1e1e1e, #111);
+        height: 100px;
+        background: #1E1E1E;
         border: 2px solid #FFD700;
         color: #FFD700;
-        border-radius: 20px;
-        font-size: 20px;
+        border-radius: 15px;
         font-weight: bold;
-        box-shadow: 5px 5px 15px rgba(0,0,0,0.5);
-        transition: 0.3s;
     }
-    div.stButton > button:hover {
-        border-color: #4CAF50;
-        color: #4CAF50;
-        transform: scale(1.02);
+    .resultado-box {
+        padding: 20px;
+        border-radius: 15px;
+        background-color: #161b22;
+        border: 1px solid #30363d;
+        margin-top: 20px;
     }
-    
-    /* Esconder menus do Streamlit para parecer App */
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
-    header {visibility: hidden;}
     </style>
 """, unsafe_allow_html=True)
 
-# --- 2. MOTOR DE DADOS ---
+# --- 2. GERENCIAMENTO DE ESTADOS ---
 if 'pagina' not in st.session_state: st.session_state.pagina = 'login'
 if 'arquetipo' not in st.session_state: st.session_state.arquetipo = None
 
-# Captura de Resultado (A API interna via URL)
+# Captura automática do resultado via URL
 params = st.query_params
 if "ms" in params:
     st.session_state.resultado_ms = int(params["ms"])
     st.session_state.pagina = 'resultado'
 
+# Lógica de Pontuação Proporcional
 def calcular_evolucao(ms):
-    if ms < 420: return 3, 3 # Nível Elite
-    elif ms < 620: return 1, 1 # Nível Padrão
+    if ms < 450: return 3, 3 # Elite
+    elif ms < 650: return 1, 1 # Padrão
     else: return 0, 0
 
-# --- 3. TELAS ---
+# --- 3. NAVEGAÇÃO ---
 
 # LOGIN
 if st.session_state.pagina == 'login':
-    st.markdown("<h1 style='text-align: center; color: #FFD700;'>🛡️ GOAT TV</h1>", unsafe_allow_html=True)
-    st.markdown("<p style='text-align: center;'>CENTRO DE TREINAMENTO</p>", unsafe_allow_html=True)
+    st.title("🛡️ PORTAL GOAT TV")
     pin = st.text_input("PIN DE ACESSO:", type="password")
-    if st.button("ACESSAR SISTEMA", use_container_width=True):
+    if st.button("ENTRAR", use_container_width=True):
         if pin == "2026": 
             st.session_state.pagina = 'hub'
             st.rerun()
 
-# HUB (GRID DE ELITE)
+# HUB
 elif st.session_state.pagina == 'hub':
-    st.markdown("<h2 style='text-align: center;'>🏟️ HUB DE ARQUÉTIPOS</h2>", unsafe_allow_html=True)
+    st.title("🏟️ HUB DE ARQUÉTIPOS")
     arqs = ["Pivô", "Finalizador", "Ponta", "2º Atacante", "Maestro", "Motorzinho", 
             "Pitbull", "Organizador", "Muralha", "Zagueiro Técnico", "Lateral Ala", "Goleiro"]
     
     col1, col2 = st.columns(2)
     for i, nome in enumerate(arqs):
         with [col1, col2][i % 2]:
-            if st.button(f"{nome}", use_container_width=True):
+            if st.button(nome, use_container_width=True):
                 st.session_state.arquetipo = nome
                 st.session_state.pagina = 'jogar'
                 st.rerun()
 
-# SALA DO JOGO (HTML/JS RUDEZÃO)
+# SALA DO JOGO
 elif st.session_state.pagina == 'jogar':
-    st.markdown(f"<h2 style='text-align: center; color: #4CAF50;'>🏠 SALA: {st.session_state.arquetipo}</h2>", unsafe_allow_html=True)
+    st.markdown(f"<h1 style='color:#FFD700;'>🏠 SALA: {st.session_state.arquetipo}</h1>", unsafe_allow_html=True)
     
     game_html = """
     <div id="box" style="height:350px; width:100%; border:3px solid #FFD700; position:relative; background:#000; overflow:hidden; border-radius:15px; display:flex; justify-content:center; align-items:center;">
-        <div id="ball" style="width:55px; height:55px; background:red; border-radius:50%; position:absolute; display:none; cursor:pointer; box-shadow: 0 0 20px red; border: 3px solid white;"></div>
+        <div id="ball" style="width:55px; height:55px; background:red; border-radius:50%; position:absolute; display:none; cursor:pointer; box-shadow: 0 0 20px red; border: 2px solid white;"></div>
         <div id="ui">
-            <button id="start" style="padding:20px 40px; font-size:20px; background:#4CAF50; color:white; border:none; border-radius:12px; cursor:pointer; font-weight:bold; box-shadow: 0 5px 0 #2E7D32;">INICIAR TREINO</button>
+            <button id="start" style="padding:20px 40px; font-size:20px; background:#4CAF50; color:white; border:none; border-radius:12px; cursor:pointer; font-weight:bold;">INICIAR TESTE</button>
             <p id="info" style="color:white; font-family:sans-serif; text-align:center; font-weight:bold;"></p>
         </div>
     </div>
-
     <script>
         const ball = document.getElementById('ball');
         const startBtn = document.getElementById('start');
@@ -100,65 +90,39 @@ elif st.session_state.pagina == 'jogar':
         function play() {
             if (count >= 5) {
                 const avg = Math.round(times.reduce((a, b) => a + b, 0) / 5);
-                info.innerHTML = "<span style='color:#FFD700; font-size:24px;'>🏁 FIM!</span><br>Sincronizando Média: " + avg + "ms";
+                info.innerHTML = "Sincronizando Média: " + avg + "ms...";
                 ball.style.display = 'none';
-                
-                // REDIRECIONAMENTO COM TIMEOUT PARA O USUÁRIO VER O FIM
                 setTimeout(() => {
                     const currentUrl = window.parent.location.href.split('?')[0];
                     window.parent.location.href = currentUrl + "?ms=" + avg;
-                }, 1200);
+                }, 1000);
                 return;
             }
             ball.style.display = 'none';
             setTimeout(() => {
-                const x = Math.random() * (box.offsetWidth - 70);
-                const y = Math.random() * (box.offsetHeight - 70);
+                const x = Math.random() * (box.offsetWidth - 60);
+                const y = Math.random() * (box.offsetHeight - 60);
                 ball.style.left = x + 'px';
                 ball.style.top = y + 'px';
                 ball.style.display = 'block';
                 start = Date.now();
-            }, 600 + Math.random() * 800);
+            }, 500 + Math.random() * 1000);
         }
-
-        startBtn.onclick = () => {
-            count = 0; times = [];
-            startBtn.style.display = 'none';
-            info.innerHTML = "FOCO NA TELA...";
-            play();
-        };
-
-        ball.onclick = () => {
-            times.push(Date.now() - start);
-            count++;
-            ball.style.display = 'none';
-            play();
-        };
+        startBtn.onclick = () => { count = 0; times = []; startBtn.style.display = 'none'; play(); };
+        ball.onclick = () => { times.push(Date.now() - start); count++; ball.style.display = 'none'; play(); };
     </script>
     """
     components.html(game_html, height=450)
     
-    if st.button("⬅️ SAIR DA SALA"):
+    if st.button("⬅️ VOLTAR AO HUB"):
         st.session_state.pagina = 'hub'
         st.rerun()
 
-# TELA DE RESULTADO (ONDE O PONTO É COMPUTADO)
+# TELA DE RESULTADO (O RELATÓRIO QUE VOCÊ QUERIA)
 elif st.session_state.pagina == 'resultado':
-    st.markdown("<h2 style='text-align: center; color: #FFD700;'>📊 RELATÓRIO TÉCNICO</h2>", unsafe_allow_html=True)
+    st.markdown("<h2 style='text-align: center; color: #FFD700;'>📊 RELATÓRIO DE EVOLUÇÃO</h2>", unsafe_allow_html=True)
+    
     media = st.session_state.resultado_ms
     s, d = calcular_evolucao(media)
     
-    st.divider()
-    st.metric(label="Média de Reflexo", value=f"{media} ms")
-    
-    if s > 0:
-        st.balloons()
-        st.success(f"📈 NÍVEL APROVADO! Ganhos: +{s} / Perdas: -{d}")
-        st.write("A ficha do seu atleta no PES 2020 já pode ser atualizada.")
-    else:
-        st.error(f"❌ DESEMPENHO ABAIXO DA MÉDIA. O nível profissional exige mais agilidade.")
-        
-    if st.button("CONCLUIR E VOLTAR AO HUB", use_container_width=True):
-        st.query_params.clear() 
-        st.session_state.pagina = 'hub'
-        st.rerun()
+    st.markdown(f"<div class='resultado-box'><h3 style='text-align:center;'>Média Final: {media}ms</h3></div>", unsafe_allow_
