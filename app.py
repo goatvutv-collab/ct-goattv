@@ -1,7 +1,7 @@
 import streamlit as st
 import streamlit.components.v1 as components
 
-# --- 1. ESTILO VISUAL GOAT TV PRO (CSS DARK & GOLD) ---
+# --- 1. ESTILO VISUAL GOAT TV PRO ---
 st.set_page_config(page_title="GOAT TV - CT", page_icon="⚽", layout="centered")
 
 st.markdown("""
@@ -11,28 +11,22 @@ st.markdown("""
     
     /* Botões do Hub */
     div.stButton > button:first-child {
-        height: 100px;
-        background: #1E1E1E;
-        border: 2px solid #FFD700;
-        color: #FFD700;
-        border-radius: 15px;
-        font-weight: bold;
+        height: 100px; background: #1E1E1E; border: 2px solid #FFD700;
+        color: #FFD700; border-radius: 15px; font-weight: bold;
     }
 
-    /* Cards de Habilidades (O que você queria) */
+    /* Cards de Habilidades */
     .skill-card {
-        padding: 20px;
-        border-radius: 20px;
-        margin-bottom: 15px;
-        border: 2px solid #333;
+        padding: 15px; border-radius: 15px; margin-bottom: 10px; border: 2px solid #333;
     }
     .gain { border-color: #4CAF50; background-color: rgba(76, 175, 80, 0.1); }
     .loss { border-color: #F44336; background-color: rgba(244, 67, 54, 0.1); }
+    .neutral { border-color: #717171; background-color: rgba(113, 113, 113, 0.1); }
     
-    .skill-name { font-size: 20px; font-weight: bold; }
-    .skill-value { float: right; font-size: 22px; font-weight: bold; }
+    .skill-name { font-size: 18px; font-weight: bold; }
+    .skill-value { float: right; font-size: 20px; font-weight: bold; }
 
-    /* Ajuste do Iframe do Jogo */
+    /* Iframe do Jogo */
     iframe { border-radius: 20px; border: 3px solid #FFD700; background-color: #000; }
     </style>
 """, unsafe_allow_html=True)
@@ -41,25 +35,31 @@ st.markdown("""
 if 'pagina' not in st.session_state: st.session_state.pagina = 'login'
 if 'arquetipo' not in st.session_state: st.session_state.arquetipo = None
 
-# Captura automática de resultados vindos da URL
+# Sincronização via URL
 params = st.query_params
 if "ms" in params:
     st.session_state.resultado_ms = int(params["ms"])
     st.session_state.pagina = 'relatorio'
 
-# Definição exata das habilidades que sobem e descem (PES 2020)
-def obter_ficha_evolucao(ms):
-    if ms < 450: # ELITE
-        ganhos = {"Reflexos do GL": "+3", "Alcance do GL": "+3", "Defensor de Pênaltis": "ATIVADO", "Consciência de GO": "+1"}
-        perdas = {"Chute Rasteiro": "-3", "Força de Chute": "-2", "Chute Alto": "-1"}
-        return ganhos, perdas
-    elif ms < 650: # PADRÃO
-        ganhos = {"Reflexos do GL": "+1", "Alcance do GL": "+1", "Consciência de GO": "+1"}
+# --- 3. LÓGICA DOS 3 NÍVEIS (O CORAÇÃO DO SISTEMA) ---
+def obter_ficha_3_niveis(ms):
+    if ms < 350: # NÍVEL ELITE (X MMS)
+        status = "🏆 ELITE (EXTRAORDINÁRIO)"
+        ganhos = {"Reflexos do GL": "+3", "Alcance do GL": "+3", "Talento de GO": "+3"}
+        perdas = {"Chute Rasteiro": "-3", "Força de Chute": "-3", "Chute Alto": "-3"}
+        return status, ganhos, perdas
+    
+    elif ms < 550: # NÍVEL PROFISSIONAL
+        status = "✅ PROFISSIONAL (EFICIENTE)"
+        ganhos = {"Reflexos do GL": "+1", "Alcance do GL": "+1", "Talento de GO": "+1"}
         perdas = {"Chute Rasteiro": "-1", "Força de Chute": "-1"}
-        return ganhos, perdas
-    return None, None
+        return status, ganhos, perdas
+    
+    else: # NÍVEL LENTO
+        status = "❌ INSUFICIENTE (TREINE MAIS)"
+        return status, None, None
 
-# --- 3. TELAS ---
+# --- 4. TELAS ---
 
 # LOGIN
 if st.session_state.pagina == 'login':
@@ -77,24 +77,22 @@ elif st.session_state.pagina == 'hub':
             "Pitbull", "Organizador", "Muralha", "Zagueiro Técnico", "Lateral Ala", "Goleiro"]
     col1, col2 = st.columns(2)
     for i, nome in enumerate(arqs):
-        with [col1, col2][i % 2]:
-            if st.button(nome, use_container_width=True):
-                st.session_state.arquetipo = nome
-                st.session_state.pagina = 'jogar'
-                st.rerun()
+        if col1.button(nome, use_container_width=True) if i % 2 == 0 else col2.button(nome, use_container_width=True):
+            st.session_state.arquetipo = nome
+            st.session_state.pagina = 'jogar'
+            st.rerun()
 
-# JOGO (O QUADRADÃO RUDEZÃO)
+# JOGO
 elif st.session_state.pagina == 'jogar':
     st.markdown(f"<h2>🏠 SALA: {st.session_state.arquetipo}</h2>", unsafe_allow_html=True)
-    
     game_html = """
-    <div id="box" style="height:350px; width:100%; position:relative; background:#000; overflow:hidden; border-radius:15px; display:flex; justify-content:center; align-items:center;">
-        <div id="ball" style="width:55px; height:55px; background:red; border-radius:50%; position:absolute; display:none; cursor:pointer; box-shadow: 0 0 20px red; border: 2px solid white;"></div>
-        <div id="ui"><button id="start" style="padding:20px 40px; font-size:20px; background:#4CAF50; color:white; border:none; border-radius:12px; cursor:pointer; font-weight:bold;">INICIAR TREINO</button>
-        <p id="info" style="color:white; font-family:sans-serif; text-align:center; font-weight:bold;"></p></div>
+    <div id="box" style="height:350px; width:100%; position:relative; background:#000; border-radius:15px; display:flex; justify-content:center; align-items:center;">
+        <div id="ball" style="width:55px; height:55px; background:red; border-radius:50%; position:absolute; display:none; cursor:pointer; border:3px solid white; box-shadow: 0 0 20px red;"></div>
+        <button id="start" style="padding:20px 40px; font-size:20px; background:#4CAF50; color:white; border:none; border-radius:12px; cursor:pointer; font-weight:bold;">INICIAR TREINO</button>
+        <p id="info" style="color:white; font-family:sans-serif; text-align:center; font-weight:bold;"></p>
     </div>
     <script>
-        const ball = document.getElementById('ball'); const startBtn = document.getElementById('start'); const info = document.getElementById('info'); const box = document.getElementById('box');
+        const ball = document.getElementById('ball'); const btn = document.getElementById('start'); const info = document.getElementById('info'); const box = document.getElementById('box');
         let times = []; let start; let count = 0;
         function play() {
             if (count >= 5) {
@@ -108,47 +106,38 @@ elif st.session_state.pagina == 'jogar':
                 ball.style.left = Math.random() * (box.offsetWidth - 60) + 'px';
                 ball.style.top = Math.random() * (box.offsetHeight - 60) + 'px';
                 ball.style.display = 'block'; start = Date.now();
-            }, 500 + Math.random() * 1000);
+            }, 600 + Math.random() * 800);
         }
-        startBtn.onclick = () => { count = 0; times = []; startBtn.style.display = 'none'; play(); };
+        btn.onclick = () => { count = 0; times = []; btn.style.display = 'none'; play(); };
         ball.onclick = () => { times.push(Date.now() - start); count++; ball.style.display = 'none'; play(); };
     </script>
     """
     components.html(game_html, height=450)
-    if st.button("⬅️ VOLTAR AO HUB"):
+    if st.button("⬅️ VOLTAR"):
         st.session_state.pagina = 'hub'
         st.rerun()
 
-# RELATÓRIO DE HABILIDADES (AQUI É ONDE APARECE O QUE SOBE E DESCE)
+# RELATÓRIO TÉCNICO (3 NÍVEIS)
 elif st.session_state.pagina == 'relatorio':
     st.markdown("<h2>📊 RELATÓRIO TÉCNICO</h2>", unsafe_allow_html=True)
     media = st.session_state.resultado_ms
-    ganhos, perdas = obter_ficha_evolucao(media)
+    status, ganhos, perdas = obter_ficha_3_niveis(media)
     
-    st.markdown(f"<h3 style='color:#FFD700;'>Média: {media}ms</h3>", unsafe_allow_html=True)
+    st.markdown(f"<div style='text-align:center; padding:10px; border-radius:10px; background:#1E1E1E; border: 1px solid #FFD700;'><h3 style='margin:0;'>{status}</h3><p style='margin:0; font-size:20px;'>Média: {media}ms</p></div>", unsafe_allow_html=True)
 
     if ganhos:
         st.balloons()
-        # Coluna de Ganhos
-        st.markdown("### 📈 Habilidades que SUBIRAM")
-        for hab, valor in ganhos.items():
-            st.markdown(f"""<div class='skill-card gain'>
-                <span class='skill-name'>✅ {hab}</span>
-                <span class='skill-value'>{valor}</span>
-            </div>""", unsafe_allow_html=True)
-
-        # Coluna de Perdas
-        st.markdown("### 📉 Habilidades que DESCERAM")
-        for hab, valor in perdas.items():
-            st.markdown(f"""<div class='skill-card loss'>
-                <span class='skill-name'>❌ {hab}</span>
-                <span class='skill-value'>{valor}</span>
-            </div>""", unsafe_allow_html=True)
+        st.markdown("### 📈 EVOLUÇÃO (PES 2020)")
+        for hab, val in ganhos.items():
+            st.markdown(f"<div class='skill-card gain'><span class='skill-name'>✅ {hab}</span><span class='skill-value'>{val}</span></div>", unsafe_allow_html=True)
+        
+        st.markdown("### 📉 PENALIDADES")
+        for hab, val in perdas.items():
+            st.markdown(f"<div class='skill-card loss'><span class='skill-name'>❌ {hab}</span><span class='skill-value'>{val}</span></div>", unsafe_allow_html=True)
     else:
-        st.error(f"❌ TREINO INSUFICIENTE ({media}ms).")
-        st.write("O nível profissional exige reflexos abaixo de 650ms. Tente novamente!")
+        st.markdown("<div class='skill-card neutral' style='text-align:center;'>🚨 <b>DESEMPENHO INSUFICIENTE</b><br>Nenhuma alteração foi feita na ficha. Alcance menos de 550ms para subir de nível.</div>", unsafe_allow_html=True)
 
-    if st.button("CONCLUIR E VOLTAR AO CT", use_container_width=True):
+    if st.button("SALVAR E VOLTAR", use_container_width=True):
         st.query_params.clear()
         st.session_state.pagina = 'hub'
         st.rerun()
