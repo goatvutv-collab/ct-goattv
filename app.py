@@ -1,143 +1,183 @@
 import streamlit as st
 import streamlit.components.v1 as components
 
-# --- 1. ESTILO VISUAL GOAT TV PRO ---
-st.set_page_config(page_title="GOAT TV - CT", page_icon="⚽", layout="centered")
+# --- 1. CONFIGURAÇÃO E ESTILO (DESIGN CANVA) ---
+st.set_page_config(page_title="GOAT TV - CT DIGITAL", layout="centered")
 
 st.markdown("""
     <style>
-    .stApp { background-color: #0E1117; color: #FFFFFF; font-family: sans-serif; }
-    h1, h2, h3 { text-align: center; color: #FFD700; font-weight: bold; }
+    .stApp { background-color: #0E0E2C; color: #FFFFFF; font-family: 'sans-serif'; }
     
-    /* Botões do Hub */
+    /* Título do CT */
+    .ct-title { text-align: center; font-size: 38px; font-weight: bold; margin-bottom: 25px; color: #FFFFFF; }
+
+    /* Estilo das Pílulas (Botões do Hub) */
     div.stButton > button:first-child {
-        height: 100px; background: #1E1E1E; border: 2px solid #FFD700;
-        color: #FFD700; border-radius: 15px; font-weight: bold;
+        height: 65px;
+        width: 100%;
+        border-radius: 35px;
+        border: none;
+        color: white;
+        font-weight: bold;
+        font-size: 16px;
+        margin-bottom: 8px;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        transition: 0.2s;
     }
+    div.stButton > button:hover { transform: scale(1.05); filter: brightness(1.2); }
 
-    /* Cards de Habilidades */
-    .skill-card {
-        padding: 15px; border-radius: 15px; margin-bottom: 10px; border: 2px solid #333;
+    /* Layout do Relatório de Resultados (Imagem 2 do Canva) */
+    .result-container {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background-color: #0E0E2C;
+        padding: 20px;
+        border-radius: 20px;
     }
-    .gain { border-color: #4CAF50; background-color: rgba(76, 175, 80, 0.1); }
-    .loss { border-color: #F44336; background-color: rgba(244, 67, 54, 0.1); }
-    .neutral { border-color: #717171; background-color: rgba(113, 113, 113, 0.1); }
+    .treino-info-title { flex: 1; font-size: 30px; font-weight: bold; line-height: 1.1; color: white; }
+    .stats-box {
+        flex: 1.2;
+        background-color: #1B5E20; /* Verde escuro do Canva */
+        padding: 20px;
+        border-radius: 15px;
+        color: white;
+    }
+    .stats-line { margin-bottom: 5px; font-size: 15px; }
+    .points-highlight { font-size: 20px; font-weight: bold; display: block; margin-top: 5px; }
     
-    .skill-name { font-size: 18px; font-weight: bold; }
-    .skill-value { float: right; font-size: 20px; font-weight: bold; }
-
-    /* Iframe do Jogo */
-    iframe { border-radius: 20px; border: 3px solid #FFD700; background-color: #000; }
+    /* Estilo do Iframe do Jogo */
+    iframe { border-radius: 30px; border: none; }
+    
+    /* Esconder elementos desnecessários */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
     </style>
 """, unsafe_allow_html=True)
 
-# --- 2. GERENCIAMENTO DE ESTADOS ---
+# --- 2. MOTOR DE ESTADOS ---
 if 'pagina' not in st.session_state: st.session_state.pagina = 'login'
 if 'arquetipo' not in st.session_state: st.session_state.arquetipo = None
 
-# Sincronização via URL
+# Sincronização Automática via URL
 params = st.query_params
 if "ms" in params:
     st.session_state.resultado_ms = int(params["ms"])
     st.session_state.pagina = 'relatorio'
 
-# --- 3. LÓGICA DOS 3 NÍVEIS (O CORAÇÃO DO SISTEMA) ---
-def obter_ficha_3_niveis(ms):
-    if ms < 350: # NÍVEL ELITE (X MMS)
-        status = "🏆 ELITE (EXTRAORDINÁRIO)"
-        ganhos = {"Reflexos do GL": "+3", "Alcance do GL": "+3", "Talento de GO": "+3"}
-        perdas = {"Chute Rasteiro": "-3", "Força de Chute": "-3", "Chute Alto": "-3"}
-        return status, ganhos, perdas
-    
-    elif ms < 550: # NÍVEL PROFISSIONAL
-        status = "✅ PROFISSIONAL (EFICIENTE)"
-        ganhos = {"Reflexos do GL": "+1", "Alcance do GL": "+1", "Talento de GO": "+1"}
-        perdas = {"Chute Rasteiro": "-1", "Força de Chute": "-1"}
-        return status, ganhos, perdas
-    
-    else: # NÍVEL LENTO
-        status = "❌ INSUFICIENTE (TREINE MAIS)"
-        return status, None, None
+# --- 3. LÓGICA DE NÍVEIS (3 TÓPICOS) ---
+def processar_niveis(ms):
+    if ms < 350: # ELITE
+        return "ELITE", 3, "Extraordinário"
+    elif ms < 550: # PROFISSIONAL
+        return "PROFISSIONAL", 1, "Eficiente"
+    else: # INSUFICIENTE
+        return "INSUFICIENTE", 0, "Lento"
 
-# --- 4. TELAS ---
+# --- 4. FLUXO DE TELAS ---
 
-# LOGIN
+# TELA DE LOGIN
 if st.session_state.pagina == 'login':
-    st.markdown("<h1>🛡️ PORTAL GOAT TV</h1>", unsafe_allow_html=True)
-    pin = st.text_input("PIN DE ACESSO:", type="password")
+    st.markdown("<h1 class='ct-title'>🛡️ GOAT TV LOGIN</h1>", unsafe_allow_html=True)
+    pin = st.text_input("PIN DE ATLETA:", type="password")
     if st.button("ACESSAR SISTEMA", use_container_width=True):
         if pin == "2026": 
             st.session_state.pagina = 'hub'
             st.rerun()
 
-# HUB
+# HUB DE PÍLULAS (IMAGEM 1)
 elif st.session_state.pagina == 'hub':
-    st.markdown("<h2>🏟️ HUB DE ARQUÉTIPOS</h2>", unsafe_allow_html=True)
+    st.markdown("<h1 class='ct-title'>CT DE TREINAMENTO</h1>", unsafe_allow_html=True)
+    
     arqs = ["Pivô", "Finalizador", "Ponta", "2º Atacante", "Maestro", "Motorzinho", 
             "Pitbull", "Organizador", "Muralha", "Zagueiro Técnico", "Lateral Ala", "Goleiro"]
-    col1, col2 = st.columns(2)
-    for i, nome in enumerate(arqs):
-        if col1.button(nome, use_container_width=True) if i % 2 == 0 else col2.button(nome, use_container_width=True):
-            st.session_state.arquetipo = nome
-            st.session_state.pagina = 'jogar'
-            st.rerun()
+    
+    # Gradientes do Canva
+    cores = [
+        "linear-gradient(90deg, #5C7CFF, #4FAAFF)", "linear-gradient(90deg, #1DBB9B, #6DDB92)", 
+        "linear-gradient(90deg, #FF5C8A, #A65CFF)", "linear-gradient(90deg, #3B4DFF, #965CFF)",
+        "linear-gradient(90deg, #965CFF, #FF5C9D)", "linear-gradient(90deg, #FFD05C, #FFAA5C)",
+        "linear-gradient(90deg, #8CFF5C, #D6FF5C)", "linear-gradient(90deg, #145CFF, #5C96FF)",
+        "linear-gradient(90deg, #1DBBBA, #4FAAFF)", "linear-gradient(90deg, #7C5CFF, #C75CFF)",
+        "linear-gradient(90deg, #FFEF5C, #FFD05C)", "linear-gradient(90deg, #FF5C5C, #FF3B3B)"
+    ]
 
-# JOGO
+    for i in range(0, len(arqs), 3):
+        cols = st.columns(3)
+        for j in range(3):
+            idx = i + j
+            if idx < len(arqs):
+                nome = arqs[idx]
+                st.markdown(f"<style>div.stButton > button[key='btn_{idx}'] {{ background: {cores[idx]} !important; }}</style>", unsafe_allow_html=True)
+                if cols[j].button(nome, key=f"btn_{idx}"):
+                    st.session_state.arquetipo = nome
+                    st.session_state.pagina = 'jogar'
+                    st.rerun()
+
+# SALA DE TREINO (IMAGEM 2 - QUADRADO AZUL)
 elif st.session_state.pagina == 'jogar':
-    st.markdown(f"<h2>🏠 SALA: {st.session_state.arquetipo}</h2>", unsafe_allow_html=True)
+    st.markdown(f"<h2 style='text-align: center;'>TREINAMENTO: {st.session_state.arquetipo}</h2>", unsafe_allow_html=True)
+    
     game_html = """
-    <div id="box" style="height:350px; width:100%; position:relative; background:#000; border-radius:15px; display:flex; justify-content:center; align-items:center;">
-        <div id="ball" style="width:55px; height:55px; background:red; border-radius:50%; position:absolute; display:none; cursor:pointer; border:3px solid white; box-shadow: 0 0 20px red;"></div>
-        <button id="start" style="padding:20px 40px; font-size:20px; background:#4CAF50; color:white; border:none; border-radius:12px; cursor:pointer; font-weight:bold;">INICIAR TREINO</button>
-        <p id="info" style="color:white; font-family:sans-serif; text-align:center; font-weight:bold;"></p>
+    <div id="canvas" style="height:380px; width:100%; background-color:#0D47A1; border-radius:30px; position:relative; overflow:hidden; display:flex; justify-content:center; align-items:center; border: 4px solid #08306B;">
+        <div id="ball" style="width:60px; height:60px; background:red; border-radius:50%; position:absolute; display:none; cursor:pointer; box-shadow: 0 0 20px rgba(255,0,0,0.8); border: 3px solid white;"></div>
+        <div id="ms-bg" style="color:rgba(255,255,255,0.15); font-size:60px; font-weight:bold; font-family:sans-serif; pointer-events:none; position:absolute;">000ms</div>
+        <button id="start" style="padding:15px 40px; font-size:22px; background:#FFFFFF; color:#0D47A1; border:none; border-radius:15px; cursor:pointer; font-weight:bold; z-index:10;">INICIAR</button>
     </div>
     <script>
-        const ball = document.getElementById('ball'); const btn = document.getElementById('start'); const info = document.getElementById('info'); const box = document.getElementById('box');
+        const ball = document.getElementById('ball'); const startBtn = document.getElementById('start'); const canvas = document.getElementById('canvas'); const msText = document.getElementById('ms-bg');
         let times = []; let start; let count = 0;
         function play() {
             if (count >= 5) {
                 const avg = Math.round(times.reduce((a, b) => a + b, 0) / 5);
-                info.innerHTML = "Sincronizando: " + avg + "ms";
+                msText.innerHTML = avg + "ms"; msText.style.color = "white";
                 setTimeout(() => { window.parent.location.href = window.parent.location.href.split('?')[0] + "?ms=" + avg; }, 1000);
                 return;
             }
             ball.style.display = 'none';
             setTimeout(() => {
-                ball.style.left = Math.random() * (box.offsetWidth - 60) + 'px';
-                ball.style.top = Math.random() * (box.offsetHeight - 60) + 'px';
+                ball.style.left = Math.random() * (canvas.offsetWidth - 80) + 'px';
+                ball.style.top = Math.random() * (canvas.offsetHeight - 80) + 'px';
                 ball.style.display = 'block'; start = Date.now();
             }, 600 + Math.random() * 800);
         }
-        btn.onclick = () => { count = 0; times = []; btn.style.display = 'none'; play(); };
+        startBtn.onclick = () => { count = 0; times = []; startBtn.style.display = 'none'; play(); };
         ball.onclick = () => { times.push(Date.now() - start); count++; ball.style.display = 'none'; play(); };
     </script>
     """
-    components.html(game_html, height=450)
+    components.html(game_html, height=420)
     if st.button("⬅️ VOLTAR"):
         st.session_state.pagina = 'hub'
         st.rerun()
 
-# RELATÓRIO TÉCNICO (3 NÍVEIS)
+# RELATÓRIO TÉCNICO (LAYOUT IMAGEM 2)
 elif st.session_state.pagina == 'relatorio':
-    st.markdown("<h2>📊 RELATÓRIO TÉCNICO</h2>", unsafe_allow_html=True)
     media = st.session_state.resultado_ms
-    status, ganhos, perdas = obter_ficha_3_niveis(media)
+    nivel, pontos, desc = processar_niveis(media)
     
-    st.markdown(f"<div style='text-align:center; padding:10px; border-radius:10px; background:#1E1E1E; border: 1px solid #FFD700;'><h3 style='margin:0;'>{status}</h3><p style='margin:0; font-size:20px;'>Média: {media}ms</p></div>", unsafe_allow_html=True)
+    st.markdown(f"""
+    <div class="result-container">
+        <div class="treino-info-title">
+            TREINO DE<br>PRECISÃO<br>
+            <span style="font-size:18px; color:#FFD700; letter-spacing:1px;">NÍVEL {nivel}</span>
+        </div>
+        <div class="stats-box">
+            <div class="stats-line">✔️ Reflexo de goleiro</div>
+            <div class="stats-line">✔️ Talento defensivo</div>
+            <span class="points-highlight" style="color:#AFFFAB;">+ {pontos} Pontos</span>
+            <br>
+            <div class="stats-line" style="opacity:0.7;">Condução firme</div>
+            <div class="stats-line" style="opacity:0.7;">Passe rasteiro</div>
+            <span class="points-highlight" style="color:#FFBABA;">- {pontos} Pontos</span>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    st.markdown(f"<h1 style='text-align:center; margin-top:0;'>{media}ms</h1>", unsafe_allow_html=True)
 
-    if ganhos:
-        st.balloons()
-        st.markdown("### 📈 EVOLUÇÃO (PES 2020)")
-        for hab, val in ganhos.items():
-            st.markdown(f"<div class='skill-card gain'><span class='skill-name'>✅ {hab}</span><span class='skill-value'>{val}</span></div>", unsafe_allow_html=True)
-        
-        st.markdown("### 📉 PENALIDADES")
-        for hab, val in perdas.items():
-            st.markdown(f"<div class='skill-card loss'><span class='skill-name'>❌ {hab}</span><span class='skill-value'>{val}</span></div>", unsafe_allow_html=True)
-    else:
-        st.markdown("<div class='skill-card neutral' style='text-align:center;'>🚨 <b>DESEMPENHO INSUFICIENTE</b><br>Nenhuma alteração foi feita na ficha. Alcance menos de 550ms para subir de nível.</div>", unsafe_allow_html=True)
-
-    if st.button("SALVAR E VOLTAR", use_container_width=True):
+    if pontos > 0: st.balloons()
+    
+    if st.button("SALVAR E FINALIZAR", use_container_width=True):
         st.query_params.clear()
         st.session_state.pagina = 'hub'
         st.rerun()
