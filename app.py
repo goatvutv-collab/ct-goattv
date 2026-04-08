@@ -1,145 +1,102 @@
 import streamlit as st
-import streamlit.components.v1 as components
+import time
+import random
 
 # --- CONFIGURAÇÃO DA PÁGINA ---
-st.set_page_config(page_title="GOAT TV - CT DIGITAL", page_icon="⚽", layout="centered")
+st.set_page_config(page_title="GOAT TV - CT", layout="centered")
 
-# CSS para o visual mobile
-st.markdown("""
-    <style>
-    div.stButton > button:first-child {
-        height: 100px;
-        white-space: normal;
-        font-weight: bold;
-        border-radius: 15px;
-        border: 2px solid #4CAF50;
-        background-color: #1E1E1E;
-        color: white;
-    }
-    </style>
-""", unsafe_allow_html=True)
+# --- MEMÓRIA DO SISTEMA (A PROVA DE ERROS) ---
+if 'pagina' not in st.session_state: st.session_state.pagina = 'login'
+if 'arquetipo' not in st.session_state: st.session_state.arquetipo = None
+if 'game_state' not in st.session_state: st.session_state.game_state = 'parado'
+if 'rodada' not in st.session_state: st.session_state.rodada = 0
+if 'tempos' not in st.session_state: st.session_state.tempos = []
+if 'ultimo_click' not in st.session_state: st.session_state.ultimo_click = 0
 
-# --- MEMÓRIA DO SISTEMA ---
-if 'pagina' not in st.session_state:
-    st.session_state.pagina = 'login'
-if 'arquetipo' not in st.session_state:
-    st.session_state.arquetipo = None
-# Aqui guardamos o resultado do jogo para não dar erro
-if 'resultado_ms' not in st.session_state:
-    st.session_state.resultado_ms = 0
-
+# --- LÓGICA DE EVOLUÇÃO ---
 def calcular_evolucao(media_ms):
-    if media_ms <= 0: return 0, 0
-    if media_ms < 350: return 3, 3
-    elif media_ms < 550: return 1, 1
-    else: return 0, 0
+    if media_ms < 400: return 3, 3 # Elite
+    elif media_ms < 600: return 1, 1 # Padrão
+    else: return 0, 0 # Lento
 
-# --- TELA DE LOGIN ---
+# --- 1. LOGIN ---
 if st.session_state.pagina == 'login':
     st.title("🛡️ PORTAL GOAT TV")
     pin = st.text_input("PIN de Atleta:", type="password")
-    if st.button("ENTRAR NO CT", use_container_width=True):
+    if st.button("ENTRAR", use_container_width=True):
         if pin == "2026": 
             st.session_state.pagina = 'hub'
             st.rerun()
 
-# --- HUB DE ARQUÉTIPOS ---
+# --- 2. HUB ---
 elif st.session_state.pagina == 'hub':
     st.title("🏟️ HUB DE ARQUÉTIPOS")
     arqs = ["Pivô", "Finalizador", "Ponta", "2º Atacante", "Maestro", "Motorzinho", 
             "Pitbull", "Organizador", "Muralha", "Zagueiro Técnico", "Lateral Ala", "Goleiro"]
-    
-    col1, col2 = st.columns(2)
+    cols = st.columns(2)
     for i, nome in enumerate(arqs):
-        with [col1, col2][i % 2]:
-            if st.button(f"➔ {nome}", use_container_width=True):
-                st.session_state.arquetipo = nome
-                st.session_state.pagina = 'treino'
-                st.rerun()
+        if cols[i%2].button(f"➔ {nome}", use_container_width=True):
+            st.session_state.arquetipo = nome
+            st.session_state.pagina = 'treino'
+            st.rerun()
 
-# --- SALA DE TREINO (CORREÇÃO AQUI) ---
+# --- 3. SALA DE TREINO (JOGO AUTOMÁTICO) ---
 elif st.session_state.pagina == 'treino':
     st.title(f"🏠 SALA: {st.session_state.arquetipo}")
 
     if st.session_state.arquetipo == "Goleiro":
-        st.subheader("🎯 Teste de Reflexo PES 2020")
+        st.subheader("🎯 Teste de Reflexo Ninja")
         
-        # O JOGO (HTML + JS)
-        # Ele agora envia o dado via URL para o Python ler
-        game_html = """
-        <div id="game-container" style="height: 300px; width: 100%; border: 3px solid #4CAF50; position: relative; background: #111; overflow: hidden; border-radius: 15px;">
-            <div id="ball" style="width: 50px; height: 50px; background: red; border-radius: 50%; position: absolute; display: none; cursor: pointer;"></div>
-            <p id="msg" style="color: white; text-align: center; margin-top: 130px; font-weight: bold;">Clique em INICIAR</p>
-        </div>
-        <button id="start-btn" style="width: 100%; margin-top: 10px; height: 50px; background: #4CAF50; color: white; border: none; border-radius: 10px; font-weight: bold;">INICIAR TESTE</button>
-        
-        <script>
-            const ball = document.getElementById('ball');
-            const btn = document.getElementById('start-btn');
-            const msg = document.getElementById('msg');
-            let times = [];
-            let start;
-            let count = 0;
+        # LOGICA DO JOGO EM PYTHON (AUTOMÁTICA)
+        if st.session_state.game_state == 'parado':
+            st.info("O teste consiste em 5 cliques rápidos. O tempo será medido automaticamente.")
+            if st.button("🔥 INICIAR TREINO AGORA", use_container_width=True):
+                st.session_state.game_state = 'jogando'
+                st.session_state.rodada = 1
+                st.session_state.tempos = []
+                st.session_state.ultimo_click = time.time()
+                st.rerun()
 
-            function spawnBall() {
-                if (count >= 5) {
-                    const avg = times.reduce((a, b) => a + b, 0) / times.length;
-                    const media = Math.round(avg);
-                    msg.innerHTML = "Fim! Média: " + media + "ms";
-                    ball.style.display = 'none';
-                    
-                    // Envia para a URL para o Python capturar
-                    const url = new URL(window.parent.location.href);
-                    url.searchParams.set('ms', media);
-                    window.parent.location.href = url.href;
-                    return;
-                }
-                const x = Math.random() * (document.getElementById('game-container').offsetWidth - 60);
-                const y = Math.random() * (240);
-                ball.style.left = x + 'px';
-                ball.style.top = y + 'px';
-                ball.style.display = 'block';
-                start = Date.now();
-            }
-
-            btn.onclick = () => {
-                count = 0; times = [];
-                msg.innerHTML = "Prepare-se...";
-                btn.style.display = 'none';
-                setTimeout(spawnBall, 1000);
-            };
-
-            ball.onclick = () => {
-                const end = Date.now();
-                times.push(end - start);
-                count++;
-                ball.style.display = 'none';
-                setTimeout(spawnBall, 500);
-            };
-        </script>
-        """
-        components.html(game_html, height=450)
-
-        # LER O RESULTADO QUE O JOGO ENVIOU
-        # Agora o Python pega direto da URL
-        params = st.query_params
-        if "ms" in params:
-            media_detectada = int(params["ms"])
-            st.session_state.resultado_ms = media_detectada
+        elif st.session_state.game_state == 'jogando':
+            progresso = st.session_state.rodada / 5
+            st.progress(progresso, text=f"Rodada {st.session_state.rodada} de 5")
             
-            st.success(f"📺 Resultado Detectado: {media_detectada}ms")
+            # Cria 3 colunas para a bolinha aparecer em lugares diferentes
+            c1, c2, c3 = st.columns(3)
+            posicao = random.randint(1, 3)
             
-            if st.button("CALIBRAR FICHA PES 2020", use_container_width=True):
-                s, d = calcular_evolucao(media_detectada)
-                if s > 0:
-                    st.balloons()
-                    st.success(f"✅ GANHOU: +{s} Reflexos | PERDEU: -{d} Chute Rasteiro")
+            # O botão aparece em uma coluna aleatória
+            col_alvo = [c1, c2, c3][posicao-1]
+            if col_alvo.button("🔴 CLIQUE!", use_container_width=True):
+                agora = time.time()
+                diff = (agora - st.session_state.ultimo_click) * 1000 # Converte pra ms
+                st.session_state.tempos.append(diff)
+                
+                if st.session_state.rodada < 5:
+                    st.session_state.rodada += 1
+                    st.session_state.ultimo_click = time.time()
+                    st.rerun()
                 else:
-                    st.error("❌ Desempenho insuficiente para o nível Profissional.")
-        else:
-            st.info("Aguardando finalização do mini-game...")
+                    st.session_state.game_state = 'finalizado'
+                    st.rerun()
+
+        elif st.session_state.game_state == 'finalizado':
+            media = sum(st.session_state.tempos) / len(st.session_state.tempos)
+            media = int(media)
+            st.success(f"🏁 TREINO CONCLUÍDO! Média: {media}ms")
+            
+            s, d = calcular_evolucao(media)
+            if s > 0:
+                st.balloons()
+                st.markdown(f"### ✅ RESULTADO: +{s} Reflexo | -{d} Chute Rasteiro")
+            else:
+                st.error("❌ Muito lento! Tente novamente para subir de nível.")
+            
+            if st.button("REFAZER TESTE"):
+                st.session_state.game_state = 'parado'
+                st.rerun()
 
     if st.button("⬅️ VOLTAR AO HUB", use_container_width=True):
-        st.query_params.clear() # Limpa o resultado para o próximo treino
+        st.session_state.game_state = 'parado'
         st.session_state.pagina = 'hub'
         st.rerun()
