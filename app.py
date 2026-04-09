@@ -1,7 +1,7 @@
 import streamlit as st
 import streamlit.components.v1 as components
 
-# --- 1. CONFIGURAÇÃO E CSS GOAT TV ---
+# --- 1. CONFIGURAÇÃO E ESTÉTICA ---
 st.set_page_config(page_title="GOAT TV - CT OFICIAL", layout="centered")
 st.markdown("""
     <style>
@@ -18,7 +18,7 @@ st.markdown("""
 if 'pagina' not in st.session_state: st.session_state.pagina = 'hub'
 p_st = st.query_params
 
-# Captura de resultados via URL
+# Captura de resultados via URL (O coração da sua contagem)
 if "score" in p_st: st.session_state.pts_d = int(p_st["score"]); st.session_state.pagina = 'rel_d'
 elif "v_time" in p_st: st.session_state.tm_v = float(p_st["v_time"]); st.session_state.pagina = 'rel_v'
 elif "p_score" in p_st: st.session_state.pts_p = int(p_st["p_score"]); st.session_state.pagina = 'rel_p'
@@ -30,10 +30,10 @@ if st.session_state.pagina == 'hub':
     st.markdown("<h1 class='ct-title'>CENTRO DE TREINAMENTO</h1>", unsafe_allow_html=True)
     c1, c2 = st.columns(2)
     with c1:
-        if st.button("⚽ DRIBLE (GUIADO)"): st.session_state.pagina = 'drible'; st.rerun()
-        if st.button("🎯 PASSE MAESTRO (FIXO)"): st.session_state.pagina = 'passe'; st.rerun()
+        if st.button("⚽ DRIBLE GUIADO"): st.session_state.pagina = 'drible'; st.rerun()
+        if st.button("🎯 PASSE MAESTRO"): st.session_state.pagina = 'passe'; st.rerun()
     with c2:
-        if st.button("⚡ REFLEXO FANTASMA"): st.session_state.pagina = 'vel'; st.rerun()
+        if st.button("⚡ VELOCIDADE FANTASMA"): st.session_state.pagina = 'vel'; st.rerun()
         if st.button("🚀 CHUTE DE PRECISÃO"): st.session_state.pagina = 'chute'; st.rerun()
 
 # --- SALA 1: DRIBLE (CIRCUITO + SETAS) ---
@@ -84,9 +84,9 @@ elif st.session_state.pagina == 'drible':
     components.html(game_html, height=500)
     if st.button("⬅️ HUB"): st.session_state.pagina = 'hub'; st.rerun()
 
-# --- SALA 2: PASSE MAESTRO (RESTALRADO 100%) ---
+# --- SALA 2: PASSE MAESTRO (RESTALRADO 100% COM CONTAGEM) ---
 elif st.session_state.pagina == 'passe':
-    st.markdown("<h2 style='text-align:center;'>🎯 PASSE MAESTRO</h2>", unsafe_allow_html=True)
+    st.markdown("<h2 style='text-align:center;'>🎯 PASSE DE PRECISÃO</h2>", unsafe_allow_html=True)
     game_html = """
     <div id="f" style="height:460px; width:100%; background:#1B5E20; position:relative; overflow:hidden; border:4px solid #08306B; touch-action:none; border-radius:20px;">
         <div id="ui" style="position:absolute; top:10px; width:100%; text-align:center; color:white; font-weight:bold; z-index:50; font-size:12px;">ACERTOS: <span id="h_ui">0</span>/10 | BOLAS: <span id="t_ui">10</span></div>
@@ -227,12 +227,9 @@ elif st.session_state.pagina == 'chute':
     components.html(game_html, height=500)
     if st.button("⬅️ HUB"): st.session_state.pagina = 'hub'; st.rerun()
 
-# --- RELATÓRIOS ---
+# RELATÓRIOS
 elif st.session_state.pagina == 'rel_p':
-    st.markdown(f"<div class='stats-box'><h2>PASSE: {st.session_state.pts_p} PTS</h2></div>", unsafe_allow_html=True)
-    if st.button("HUB"): st.query_params.clear(); st.session_state.pagina = 'hub'; st.rerun()
-elif st.session_state.pagina == 'rel_c':
-    st.markdown(f"<div class='stats-box'><h2>CHUTE: {st.session_state.pts_c} PTS</h2></div>", unsafe_allow_html=True)
-    if st.button("HUB"): st.query_params.clear(); st.session_state.pagina = 'hub'; st.rerun()
+    st.markdown(f"<div class='stats-box'><h2>PASSE: {st.session_state.pts_p} PTS</h2><p>Treino homologado pela Federação Goat TV.</p></div>", unsafe_allow_html=True)
+    if st.button("VOLTAR AO HUB"): st.query_params.clear(); st.session_state.pagina = 'hub'; st.rerun()
 
-# FIM DO SISTEMA GOAT TV 2026
+# FIM DO SISTEMA GOAT TV
