@@ -1,23 +1,18 @@
 import streamlit as st
 import streamlit.components.v1 as components
 
-# --- 1. ESTILO PREMIUM MOBILE (FIXO E BLINDADO) ---
-st.set_page_config(page_title="GOAT TV - CT OFICIAL", layout="centered")
+# --- 1. ESTILO PREMIUM MOBILE (DESIGN GOAT TV) ---
+st.set_page_config(page_title="GOAT TV - CT DINÂMICO", layout="centered")
 
 st.markdown("""
     <style>
     .stApp { background-color: #0E0E2C; color: #FFFFFF; font-family: 'sans-serif'; }
     .ct-title { text-align: center; font-size: 26px; font-weight: 800; color: #FFD700; margin-bottom: 15px; }
-    
-    /* Botões Pílula Simétricos */
     div.stButton > button {
-        width: 100% !important; height: 55px !important;
-        border-radius: 50px !important; border: none !important;
-        color: white !important; font-weight: 700 !important; font-size: 16px !important;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.4) !important;
-        margin-bottom: 12px !important;
+        width: 100% !important; height: 55px !important; border-radius: 50px !important;
+        border: none !important; color: white !important; font-weight: 700 !important;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.4) !important; margin-bottom: 12px !important;
     }
-    
     iframe { border-radius: 25px; border: 3px solid #1E3A8A; background: transparent; }
     #MainMenu {visibility: hidden;} footer {visibility: hidden;}
     </style>
@@ -34,44 +29,38 @@ elif "time" in params:
     st.session_state.tempo_velocidade = float(params["time"])
     st.session_state.pagina = 'relatorio_velocidade'
 
-# --- 3. FLUXO DE TELAS ---
+# --- 3. TELAS ---
 
-# TELA DE LOGIN (FIXADA COM BOTÃO)
+# LOGIN (FIXADO)
 if st.session_state.pagina == 'login':
     st.markdown("<h1 class='ct-title'>🛡️ ACESSO CT GOAT TV</h1>", unsafe_allow_html=True)
     pin = st.text_input("PIN DO ATLETA:", type="password")
-    # O BOTÃO DE ACESSO QUE NÃO PODE SUMIR:
     if st.button("ENTRAR NO CT", use_container_width=True):
-        if pin == "2026": 
-            st.session_state.pagina = 'hub'
-            st.rerun()
+        if pin == "2026": st.session_state.pagina = 'hub'; st.rerun()
 
-# HUB UNIFICADO
+# HUB
 elif st.session_state.pagina == 'hub':
     st.markdown("<h1 class='ct-title'>CENTRO DE TREINAMENTO</h1>", unsafe_allow_html=True)
-    col1, col2 = st.columns(2)
-    with col1:
+    c1, c2 = st.columns(2)
+    with c1:
         st.markdown("<style>div.stButton > button[key='btn_d'] { background: linear-gradient(135deg, #4A90E2, #357ABD) !important; }</style>", unsafe_allow_html=True)
-        if st.button("⚽ DRIBLE", key="btn_d"):
-            st.session_state.pagina = 'treino_drible'; st.rerun()
-    with col2:
+        if st.button("⚽ DRIBLE", key="btn_d"): st.session_state.pagina = 'treino_drible'; st.rerun()
+    with c2:
         st.markdown("<style>div.stButton > button[key='btn_v'] { background: linear-gradient(135deg, #7C5CFF, #5A3ECC) !important; }</style>", unsafe_allow_html=True)
-        if st.button("⚡ VELOCIDADE", key="btn_v"):
-            st.session_state.pagina = 'treino_velocidade'; st.rerun()
+        if st.button("⚡ VELOCIDADE", key="btn_v"): st.session_state.pagina = 'treino_velocidade'; st.rerun()
 
-# SALA 1: DRIBLE (TARGET ARROW + ANALÓGICO COMPACTO)
+# --- SALA 1: DRIBLE (CIRCUITO ALEATÓRIO) ---
 elif st.session_state.pagina == 'treino_drible':
-    st.markdown("<h2 style='text-align:center;'>⚽ SLALOM GOAT TV</h2>", unsafe_allow_html=True)
+    st.markdown("<h2 style='text-align:center;'>⚽ RANDOM SLALOM</h2>", unsafe_allow_html=True)
     game_html = """
     <div id="f" style="height:480px; width:100%; background-color:#0D47A1; border-radius:20px; position:relative; overflow:hidden; border:4px solid #08306B; touch-action:none;">
         <div id="p" style="width:24px; height:24px; background:white; border-radius:50%; position:absolute; left:45%; bottom:50px; z-index:30; border:2px solid #333;">⚽</div>
         <div id="goal" style="width:80px; height:10px; background:yellow; position:absolute; bottom:0; right:0;"></div>
-        <div class="c" style="left:15%; top:360px;"></div> <div class="c" style="left:35%; top:360px;"></div> <div class="gt" id="g0" style="left:16%; top:360px; width:18%"></div>
-        <div class="c" style="left:65%; top:60px;"></div> <div class="c" style="left:85%; top:60px;"></div> <div class="gt" id="g1" style="left:66%; top:60px; width:18%"></div>
-        <div class="c" style="left:15%; top:60px;"></div> <div class="c" style="left:35%; top:60px;"></div> <div class="gt" id="g2" style="left:16%; top:60px; width:18%"></div>
-        <div class="c" style="left:65%; top:200px;"></div> <div class="c" style="left:85%; top:200px;"></div> <div class="gt" id="g3" style="left:66%; top:200px; width:18%"></div>
-        <div class="c" style="left:65%; top:360px;"></div> <div class="c" style="left:85%; top:360px;"></div> <div class="gt" id="g4" style="left:66%; top:360px; width:18%"></div>
-        <svg id="tArr" style="position:absolute; width:24px; height:24px; z-index:100;" viewBox="0 0 24 24"><path fill="#FFD700" d="M12 21l-12-18h24z"/></svg>
+        
+        <div id="gates_container"></div>
+
+        <svg id="tArr" style="position:absolute; width:24px; height:24px; z-index:100; display:none;" viewBox="0 0 24 24"><path fill="#FFD700" d="M12 21l-12-18h24z"/></svg>
+        
         <div id="jb" style="position:absolute; bottom:15px; left:15px; width:80px; height:80px; background:rgba(255,255,255,0.1); border-radius:50%; z-index:100; border:2px solid rgba(255,255,255,0.2);">
             <div id="js" style="position:absolute; top:20px; left:20px; width:40px; height:40px; background:rgba(255,255,255,0.4); border-radius:50%;"></div>
         </div>
@@ -80,17 +69,36 @@ elif st.session_state.pagina == 'treino_drible':
     </div>
     <style>.c{width:16px;height:16px;background:orange;border-radius:50%;position:absolute;border:1px solid #CC5500;}.gt{position:absolute;border-left:2px dashed rgba(255,255,255,0.1);height:16px;} #tArr{filter: drop-shadow(0 0 5px gold); animation: pulse 0.8s infinite alternate;} @keyframes pulse { from {transform: translateY(0);} to {transform: translateY(-8px);}}</style>
     <script>
-        const p=document.getElementById('p'), f=document.getElementById('f'), go=document.getElementById('go'), jB=document.getElementById('jb'), jS=document.getElementById('js'), ta=document.getElementById('tArr');
-        let x=f.offsetWidth/2-12, y=380, score=0, time=15.0, run=false, gts=new Set(), jX=0, jY=0, drag=false;
-        const ck = [{id:'g0',x:f.offsetWidth*0.25,y:340},{id:'g1',x:f.offsetWidth*0.75,y:40},{id:'g2',x:f.offsetWidth*0.25,y:40},{id:'g3',x:f.offsetWidth*0.75,y:160},{id:'g4',x:f.offsetWidth*0.75,y:340},{x:f.offsetWidth*0.8,y:460}];
-        function upA(){ let t=ck[gts.size]; if(t){ ta.style.left=(t.x-4)+'px'; ta.style.top=(t.y-30)+'px'; } }
+        const p=document.getElementById('p'), f=document.getElementById('f'), go=document.getElementById('go'), jB=document.getElementById('jb'), jS=document.getElementById('js'), ta=document.getElementById('tArr'), gCont=document.getElementById('gates_container');
+        let x=f.offsetWidth/2-12, y=380, score=0, time=15.0, run=false, gts=new Set(), jX=0, jY=0, drag=false, ck=[];
+
+        function buildCircuit() {
+            gCont.innerHTML = ''; ck = [];
+            const rows = [340, 240, 140, 40, 140]; // Alturas aproximadas dos portões
+            for(let i=0; i<5; i++){
+                let randX = 15 + Math.random() * 60; // Posição X aleatória (em %)
+                let html = `<div class="c" style="left:${randX}%; top:${rows[i]}px;"></div>
+                            <div class="c" style="left:${randX+20}%; top:${rows[i]}px;"></div>
+                            <div class="gt" id="g${i}" style="left:${randX+1}%; top:${rows[i]}px; width:18%"></div>`;
+                gCont.innerHTML += html;
+                ck.push({id:`g${i}`, x: (f.offsetWidth * (randX+10)/100), y: rows[i]});
+            }
+            ck.push({id:'goal', x: f.offsetWidth * 0.8, y: 460});
+        }
+
+        function upA(){ let t=ck[gts.size]; if(t){ ta.style.left=(t.x-12)+'px'; ta.style.top=(t.y-30)+'px'; } }
+        
         jB.ontouchstart=(e)=>{drag=true; e.preventDefault();};
-        window.ontouchmove=(e)=>{ if(!drag)return; let touch=e.touches[0], r=jB.getBoundingClientRect(), dx=touch.clientX-(r.left+40), dy=touch.clientY-(r.top+40), d=Math.min(Math.sqrt(dx*dx+dy*dy), 40), a=Math.atan2(dy,dx); jX=Math.cos(a)*(d/40); jY=Math.sin(a)*(d/40); jS.style.transform=`translate(${jX*25}px, ${jY*25}px)`; };
+        window.ontouchmove=(e)=>{ if(!drag)return; let t=e.touches[0], r=jB.getBoundingClientRect(), dx=t.clientX-(r.left+40), dy=t.clientY-(r.top+40), d=Math.min(Math.sqrt(dx*dx+dy*dy), 40), a=Math.atan2(dy,dx); jX=Math.cos(a)*(d/40); jY=Math.sin(a)*(d/40); jS.style.transform=`translate(${jX*25}px, ${jY*25}px)`; };
         window.ontouchend=()=>{drag=false; jX=0; jY=0; jS.style.transform='translate(0,0)';};
-        go.onclick=()=>{run=true; go.style.display='none'; upA();};
+        
+        go.onclick=()=>{ 
+            buildCircuit(); run=true; go.style.display='none'; ta.style.display='block'; upA(); 
+        };
+
         function loop(){
             if(run && time>0){
-                time-=0.016; x+=jX*4.5; y+=jY*4.5;
+                time-=0.016; x+=jX*4.8; y+=jY*4.8;
                 x=Math.max(0,Math.min(x,f.offsetWidth-24)); y=Math.max(0,Math.min(y,f.offsetHeight-24));
                 p.style.left=x+'px'; p.style.top=y+'px';
                 if(gts.size<5){
@@ -109,7 +117,7 @@ elif st.session_state.pagina == 'treino_drible':
     components.html(game_html, height=520)
     if st.button("⬅️ VOLTAR AO HUB"): st.session_state.pagina='hub'; st.rerun()
 
-# SALA 2: VELOCIDADE (GHOST SPRINT - ANALÓGICO + FANTASMAS)
+# --- SALA 2: VELOCIDADE (FIXA CONFORME SOLICITADO) ---
 elif st.session_state.pagina == 'treino_velocidade':
     st.markdown("<h2 style='text-align:center;'>⚡ GHOST SPRINT</h2>", unsafe_allow_html=True)
     game_html = """
