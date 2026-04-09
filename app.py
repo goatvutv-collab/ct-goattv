@@ -97,4 +97,72 @@ elif st.session_state.pagina == 'treino_drible':
                 time-=0.02; let nx=x+jX*5, ny=y+jY*5; if(!checkC(nx,y))x=nx; if(!checkC(x,ny))y=ny;
                 x=Math.max(0,Math.min(x,f.offsetWidth-34)); y=Math.max(0,Math.min(y,f.offsetHeight-34));
                 p.style.left=x+'px'; p.style.top=y+'px';
-                document.querySelectorAll('.gt').forEach((g,i)=>{ const gr=g.getBoundingClientRect(), pr=p.getBoundingClientRect(); if(!(pr.right<gr.left||pr.left>gr.right||pr.bottom<gr
+                document.querySelectorAll('.gt').forEach((g,i)=>{ const gr=g.getBoundingClientRect(), pr=p.getBoundingClientRect(); if(!(pr.right<gr.left||pr.left>gr.right||pr.bottom<gr.top||pr.top>gr.bottom)){ if(!gates.has(i)){gates.add(i); score+=400; g.style.background='rgba(0,255,0,0.2)';} } });
+                if(x>f.offsetWidth-45){ window.parent.location.href=window.parent.location.href.split('?')[0]+"?score="+(score+500+Math.round(time*100)); run=false; }
+                document.getElementById('s_ui').innerHTML="PONTOS: "+score; document.getElementById('t_ui').innerHTML="TEMPO: "+time.toFixed(1)+"s";
+            }
+            requestAnimationFrame(loop);
+        }
+        loop();
+    </script>
+    """
+    components.html(game_html, height=450)
+    if st.button("⬅️ VOLTAR AO HUB"): st.session_state.pagina='hub'; st.rerun()
+
+# SALA: VELOCIDADE (VERTICAL + ANALÓGICO + FANTASMAS)
+elif st.session_state.pagina == 'treino_velocidade':
+    st.markdown("<h2 style='text-align:center;'>⚡ GHOST GAUNTLET 360°</h2>", unsafe_allow_html=True)
+    game_html = """
+    <div id="f" style="height:500px; width:100%; background-color:#0D47A1; border-radius:30px; position:relative; overflow:hidden; touch-action:none; transition: background 0.1s;">
+        <div id="p" style="width:34px; height:34px; background:white; border-radius:50%; position:absolute; left:45%; bottom:20px; border:2px solid #333; z-index:20;">⚽</div>
+        <div style="width:100%; height:15px; background:yellow; position:absolute; top:0; left:0;"></div>
+        <div id="tm_ui" style="position:absolute; top:20px; right:20px; font-weight:bold; color:white; font-size:24px;">0.00s</div>
+        <div id="jb" style="position:absolute; bottom:20px; left:20px; width:90px; height:90px; background:rgba(255,255,255,0.1); border-radius:50%; z-index:100; border:2px solid rgba(255,255,255,0.2);">
+            <div id="js" style="position:absolute; top:20px; left:20px; width:50px; height:50px; background:rgba(255,255,255,0.4); border-radius:50%;"></div>
+        </div>
+        <button id="go" style="position:absolute; bottom:30px; right:30px; padding:15px 30px; background:#4CAF50; color:white; border-radius:15px; border:none; font-weight:bold; z-index:100;">GO!</button>
+    </div>
+    <script>
+        const p=document.getElementById('p'), f=document.getElementById('f'), go=document.getElementById('go'), jB=document.getElementById('jb'), jS=document.getElementById('js');
+        let x=f.offsetWidth/2-17, y=450, t=0, run=false, jX=0, jY=0, drag=false;
+        const walls = [];
+        for(let i=0; i<8; i++){
+            let w=document.createElement('div'); w.style.position='absolute'; w.style.background='#0D47A1';
+            w.style.width=(40+Math.random()*60)+'px'; w.style.height='40px';
+            w.style.left=Math.random()*(f.offsetWidth-60)+'px'; w.style.top=(60+Math.random()*340)+'px';
+            f.appendChild(w); walls.push(w);
+        }
+        jB.ontouchstart=(e)=>{drag=true; e.preventDefault();};
+        window.ontouchmove=(e)=>{ if(!drag)return; let t=e.touches[0], r=jB.getBoundingClientRect(), dx=t.clientX-(r.left+45), dy=t.clientY-(r.top+45), d=Math.min(Math.sqrt(dx*dx+dy*dy), 45), a=Math.atan2(dy,dx); jX=Math.cos(a)*(d/45); jY=Math.sin(a)*(d/45); jS.style.transform=`translate(${jX*35}px, ${jY*35}px)`; };
+        window.ontouchend=()=>{drag=false; jX=0; jY=0; jS.style.transform='translate(0,0)';};
+        go.onclick=()=>{if(!run){run=true; go.style.display='none';}};
+        function checkW(nx,ny){ const pr={l:nx, r:nx+34, t:ny, b:ny+34}; for(let w of walls){ const wr={l:w.offsetLeft, r:w.offsetLeft+w.offsetWidth, t:w.offsetTop, b:w.offsetTop+40}; if(!(pr.r<wr.l||pr.l>wr.r||pr.b<wr.t||pr.t>wr.b)) return true; } return false; }
+        function loop(){
+            if(run){
+                t+=0.016; document.getElementById('tm_ui').innerHTML=t.toFixed(2)+"s";
+                let nx=x+jX*6, ny=y+jY*7;
+                if(!checkW(nx,y)) x=nx; else f.style.background='#1A3A8A';
+                if(!checkW(x,ny)) y=ny; else f.style.background='#1A3A8A';
+                if(jX==0 && jY==0) f.style.background='#0D47A1';
+                x=Math.max(0,Math.min(x,f.offsetWidth-34)); y=Math.max(0,Math.min(y,f.offsetHeight-34));
+                p.style.left=x+'px'; p.style.top=y+'px';
+                if(y < 10){ window.parent.location.href=window.parent.location.href.split('?')[0]+"?time="+t.toFixed(2); run=false; }
+            }
+            requestAnimationFrame(loop);
+        }
+        loop();
+    </script>
+    """
+    components.html(game_html, height=750)
+    if st.button("⬅️ VOLTAR AO HUB"): st.session_state.pagina='hub'; st.rerun()
+
+# --- RELATÓRIOS ---
+elif st.session_state.pagina == 'relatorio_drible':
+    pts = st.session_state.get('pontos_drible', 0)
+    st.markdown(f"<div class='stats-box'><h3>RESULTADO DRIBLE</h3><b>{pts} PTS</b></div>", unsafe_allow_html=True)
+    if st.button("CONCLUIR"): st.query_params.clear(); st.session_state.pagina='hub'; st.rerun()
+
+elif st.session_state.pagina == 'relatorio_velocidade':
+    tm = st.session_state.get('tempo_velocidade', 0)
+    st.markdown(f"<div class='stats-box'><h3>RESULTADO VELOCIDADE</h3><b>{tm}s</b></div>", unsafe_allow_html=True)
+    if st.button("CONCLUIR"): st.query_params.clear(); st.session_state.pagina='hub'; st.rerun()
