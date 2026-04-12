@@ -1,153 +1,268 @@
 import streamlit as st
 import streamlit.components.v1 as components
+import json
+import os
+import re
 
-# --- 1. CONFIGURAÇÃO GOAT TV ---
-st.set_page_config(page_title="GOAT TV - CT OFICIAL", layout="centered")
-st.markdown("""
-    <style>
-    .stApp { background-color: #0E0E2C; color: #FFF; font-family: sans-serif; }
-    .ct-title { text-align: center; font-size: 26px; font-weight: 800; color: #FFD700; margin-bottom: 10px; }
-    div.stButton > button { width: 100%!important; height: 48px!important; border-radius: 50px!important; border: none!important; color: white!important; font-weight: 700!important; box-shadow: 0 4px 10px rgba(0,0,0,0.5)!important; }
-    iframe { border-radius: 20px; border: 3px solid #1E3A8A; background: transparent; }
-    .stats-box { background-color: #1B5E20; padding: 20px; border-radius: 20px; text-align: center; border: 1px solid #FFD700; }
-    #MainMenu {visibility: hidden;} footer {visibility: hidden;}
-    </style>
-""", unsafe_allow_html=True)
+# 1. CONFIGURAÇÃO INSTITUCIONAL - GOAT TV
+st.set_page_config(page_title="GOAT TV - CT PERSPECTIVA", layout="centered", initial_sidebar_state="collapsed")
 
-# --- 2. MOTOR DE NAVEGAÇÃO ---
-if 'pagina' not in st.session_state: st.session_state.pagina = 'hub'
-p_st = st.query_params
+# --- SISTEMA DE DADOS E ARQUÉTIPOS ---
+DB_FILE = "goat_players.json"
 
-if "score" in p_st: st.session_state.pts_d = float(p_st["score"]); st.session_state.pagina = 'rel_d'
-elif "v_time" in p_st: st.session_state.tm_v = float(p_st["v_time"]); st.session_state.pagina = 'rel_v'
-elif "p_score" in p_st: st.session_state.pts_p = int(p_st["p_score"]); st.session_state.pagina = 'rel_p'
-elif "c_score" in p_st: st.session_state.pts_c = int(p_st["c_score"]); st.session_state.pagina = 'rel_c'
+TREINOS_LOGIC = {
+    "DRIBLE": {"sobe": ["drible", "aceleracao", "controle_bola"], "desce": ["desarme", "agressividade"]},
+    "PASSE":  {"sobe": ["passe_rasteiro", "passe_alto", "curva"], "desce": ["velocidade", "forca_chute"]},
+    "FINALIZACAO": {"sobe": ["finalizacao", "forca_chute", "talento_ofensivo"], "desce": ["resistencia", "desarme"]},
+    "DEFESA": {"sobe": ["talento_defensivo", "desarme", "contato_fisico"], "desce": ["drible", "aceleracao"]}
+}
 
-# --- 3. TELAS ---
+def load_data():
+    if os.path.exists(DB_FILE):
+        try:
+            with open(DB_FILE, "r") as f: return json.load(f)
+        except: return {}
+    return {}
 
-if st.session_state.pagina == 'hub':
-    st.markdown("<h1 class='ct-title'>CENTRO DE TREINAMENTO</h1>", unsafe_allow_html=True)
-    c1, c2 = st.columns(2)
-    with c1:
-        if st.button("⚽ DRIBLE CIRCUITO U"): st.session_state.pagina = 'drible'; st.rerun()
-        if st.button("🎯 PASSE MAESTRO (COM MIRA)"): st.session_state.pagina = 'passe'; st.rerun()
-    with c2:
-        if st.button("⚡ REFLEXO FANTASMA"): st.session_state.pagina = 'vel'; st.rerun()
-        if st.button("🚀 CHUTE DE PRECISÃO"): st.session_state.pagina = 'chute'; st.rerun()
+def save_data(data):
+    with open(DB_FILE, "w") as f: json.dump(data, f, indent=4)
 
-# SALA 1: DRIBLE (CIRCUITO U + PAREDE + ADVERSÁRIOS)
-elif st.session_state.pagina == 'drible':
-    st.markdown("<h2 style='text-align:center;'>⚽ DRIBLE: CIRCUITO EM U</h2>", unsafe_allow_html=True)
-    game_html = """
-    <div id="f" style="height:480px; width:100%; background:#0D47A1; position:relative; overflow:hidden; border:4px solid #08306B; touch-action:none; border-radius:20px;">
-        <div id="p" style="width:26px; height:26px; background:white; border-radius:50%; position:absolute; left:15%; bottom:20px; border:2px solid #333; z-index:45;">⚽</div>
-        <div id="aim" style="width:2px; height:60px; background:rgba(255,255,255,0.3); position:absolute; transform-origin: bottom center; display:none; z-index:35;"></div>
-        <div id="wall" style="width:10px; height:280px; background:rgba(255,255,255,0.15); border:1px solid rgba(255,255,255,0.3); position:absolute; left:50%; bottom:0; transform:translateX(-50%); z-index:30;"></div>
-        <div id="obs1" style="width:60px; height:14px; background:#F44; position:absolute; left:5%; top:240px; border-radius:4px; border:1px solid white;"></div>
-        <div id="obs2" style="width:14px; height:60px; background:#F44; position:absolute; left:48%; top:20px; border-radius:4px; border:1px solid white;"></div>
-        <div id="obs3" style="width:60px; height:14px; background:#F44; position:absolute; right:5%; top:240px; border-radius:4px; border:1px solid white;"></div>
-        <div id="gC"></div><div id="arrow" style="position:absolute; width:30px; height:30px; z-index:100; font-size:24px;">⬇️</div>
-        <div id="jb" style="position:absolute; bottom:15px; left:15px; width:80px; height:80px; background:rgba(255,255,255,0.1); border-radius:50%; z-index:100;"><div id="js" style="position:absolute; top:20px; left:20px; width:40px; height:40px; background:rgba(255,255,255,0.3); border-radius:50%;"></div></div>
-    </div>
-    <script>
-        const p=document.getElementById('p'), aim=document.getElementById('aim'), jB=document.getElementById('jb'), js=document.getElementById('js'), f=document.getElementById('f'), gC=document.getElementById('gC'), arr=document.getElementById('arrow'), wall=document.getElementById('wall');
-        const ob1=document.getElementById('obs1'), ob2=document.getElementById('obs2'), ob3=document.getElementById('obs3');
-        let x=p.offsetLeft, y=p.offsetTop, jX=0, jY=0, curX=0, curY=0, drag=false, step=0, start=Date.now(), run=false, v1=2.8, v2=4.2, v3=-3.1;
-        const gates = [{x1:8,x2:35,y:380},{x1:8,x2:35,y:100},{x1:62,x2:92,y:100},{x1:62,x2:92,y:380}];
-        gates.forEach((gt,i)=>{ gC.innerHTML+=`<div style="width:12px;height:12px;background:orange;border-radius:50%;position:absolute;left:${gt.x1}%;top:${gt.y}px;"></div><div style="width:12px;height:12px;background:orange;border-radius:50%;position:absolute;left:${gt.x2}%;top:${gt.y}px;"></div><div id="l${i}" style="height:4px;background:rgba(0,255,0,0.2);position:absolute;left:${gt.x1+2}%;top:${gt.y+4}px;width:${gt.x2-gt.x1-2}%;"></div>`; });
-        jB.ontouchstart=(e)=>{drag=true; if(!run){run=true; start=Date.now();} aim.style.display='block'; e.preventDefault();};
-        window.ontouchmove=(e)=>{ if(!drag)return; let t=e.touches[0], r=jB.getBoundingClientRect(), dx=t.clientX-(r.left+40), dy=t.clientY-(r.top+40), d=Math.min(Math.sqrt(dx*dx+dy*dy),40), a=Math.atan2(dy,dx); jX=Math.cos(a)*(d/40); jY=Math.sin(a)*(d/40); js.style.transform=`translate(${jX*25}px, ${jY*25}px)`; aim.style.transform=`rotate(${(a*180/Math.PI)+90}deg)`; aim.style.left=(p.offsetLeft+12)+'px'; aim.style.top=(p.offsetTop-45)+'px'; };
-        window.ontouchend=()=>{drag=false; jX=jY=0; aim.style.display='none';};
-        function loop(){
-            if(run){
-                curX+=(jX*5.5-curX)*0.15; curY+=(jY*5.5-curY)*0.15; 
-                let wr=wall.getBoundingClientRect(), fR=f.getBoundingClientRect();
-                let wallRel = { left: wr.left-fR.left, right: wr.right-fR.left, top: wr.top-fR.top, bottom: wr.bottom-fR.top };
-                if (!(x+curX+26 < wallRel.left || x+curX > wallRel.right || y+curY+26 < wallRel.top || y+curY > wallRel.bottom)) curX = 0;
-                x += curX; y += curY; x=Math.max(5,Math.min(x,f.offsetWidth-32)); y=Math.max(5,Math.min(y,f.offsetHeight-32));
-                p.style.left=x+'px'; p.style.top=y+'px';
-                let ox1=ob1.offsetLeft; if(ox1>f.offsetWidth*0.35||ox1<5) v1*=-1; ob1.style.left=(ox1+v1)+'px';
-                let ox2=ob2.offsetLeft; if(ox2>f.offsetWidth*0.8||ox2<f.offsetWidth*0.2) v2*=-1; ob2.style.left=(ox2+v2)+'px';
-                let ox3=ob3.offsetLeft; if(ox3>f.offsetWidth-65||ox3<f.offsetWidth*0.6) v3*=-1; ob3.style.left=(ox3+v3)+'px';
-                [ob1,ob2,ob3].forEach(ob=>{ let or=ob.getBoundingClientRect(), pr2=p.getBoundingClientRect(); if(!(pr2.right<or.left||pr2.left>or.right||pr2.bottom<or.top||pr2.top>or.bottom)){ x-=curX*8; y-=curY*8; p.style.background='red'; setTimeout(()=>p.style.background='white',100); } });
-                if(step < 4){
-                    let lr=document.getElementById('l'+step).getBoundingClientRect(), pr3=p.getBoundingClientRect();
-                    if(!(pr3.right<lr.left||pr3.left>lr.right||pr3.bottom<lr.top||pr3.top>lr.bottom)) step++;
-                    let target=document.getElementById('l'+(step<4?step:3)).getBoundingClientRect(), field=f.getBoundingClientRect();
-                    arr.style.left=(target.left-field.left+15)+'px'; arr.style.top=(target.top-field.top-35)+'px';
-                } else { if(x > f.offsetWidth*0.7 && y > 350) window.parent.location.href=window.parent.location.href.split('?')[0]+"?score="+((Date.now()-start)/1000).toFixed(2); }
-            }
-            requestAnimationFrame(loop);
-        }
-        loop();
-    </script>
-    """
-    components.html(game_html, height=500)
-    if st.button("⬅️ VOLTAR"): st.session_state.pagina = 'hub'; st.rerun()
+def aplicar_evolucao(player_id, tipo, score):
+    data = load_data()
+    if player_id not in data: data[player_id] = {"stats": {}, "history": []}
+    p = data[player_id].get("stats", {})
+    if score > 500:
+        for s in TREINOS_LOGIC[tipo]["sobe"]: p[s] = min(p.get(s, 70) + 1.8, 95)
+        for d in TREINOS_LOGIC[tipo]["desce"]: p[d] = max(p.get(d, 70) - 1.4, 50)
+    data[player_id]["stats"] = p
+    save_data(data)
 
-# --- SALA 2: PASSE MAESTRO (TOTALMENTE RESTAURADO COM MIRA) ---
-elif st.session_state.pagina == 'passe':
-    st.markdown("<h2 style='text-align:center;'>🎯 PASSE MAESTRO</h2>", unsafe_allow_html=True)
-    game_html = """
-    <div id="f" style="height:460px; width:100%; background:#1B5E20; position:relative; overflow:hidden; border:4px solid #08306B; touch-action:none; border-radius:20px;">
-        <div id="ui" style="position:absolute; top:10px; width:100%; text-align:center; color:white; font-weight:bold; z-index:50; font-size:12px;">ACERTOS: <span id="h_ui">0</span>/10 | BOLAS: <span id="t_ui">10</span></div>
-        <div id="p" style="width:26px; height:26px; background:white; border-radius:50%; position:absolute; left:46%; bottom:40px; border:2px solid #333; z-index:40;">⚽</div>
-        
-        <div id="aim" style="width:2px; height:70px; background:rgba(255,255,255,0.3); position:absolute; left:50%; bottom:53px; transform-origin: bottom center; display:none; z-index:35;"></div>
-        
-        <div id="t0" class="tgt" style="left:15%; top:60px;"></div><div id="t1" class="tgt" style="left:46%; top:40px;"></div><div id="t2" class="tgt" style="left:75%; top:60px;"></div>
-        <div id="opp" style="width:60px; height:16px; background:#F44; position:absolute; left:10%; top:170px; border-radius:4px; border:1px solid white; z-index:32;"></div>
-        <div id="pb_bg" style="position:absolute; bottom:90px; right:20px; width:16px; height:100px; background:#333; border:2px solid white; border-radius:8px; overflow:hidden;">
-            <div id="pb" style="width:100%; height:0%; background:linear-gradient(to top, #F44, #4CAF50 50%, #F44); position:absolute; bottom:0;"></div>
-            <div style="position:absolute; top:45%; width:100%; height:10%; border-top:2px solid gold; border-bottom:2px solid gold;"></div>
+if 'logged_in' not in st.session_state:
+    st.session_state.logged_in = False
+    st.session_state.player_id = ""
+    st.session_state.treino_selecionado = "DRIBLE"
+
+# --- TELA 1: PORTAL DE ACESSO ---
+if not st.session_state.logged_in:
+    st.markdown("<h2 style='text-align: center; color: #ffd700; font-family: sans-serif;'>GOAT TV: PORTAL DE ACESSO</h2>", unsafe_allow_html=True)
+    st.write("---")
+    col1, col2 = st.columns(2)
+    with col1:
+        pid_input = st.text_input("ID DO ATLETA:", "").strip().upper()
+    with col2:
+        tipo_treino = st.selectbox("SETOR DE TREINO:", list(TREINOS_LOGIC.keys()))
+    
+    if st.button("INICIAR TREINAMENTO", use_container_width=True):
+        if pid_input and bool(re.match("^[a-zA-Z0-9]*$", pid_input)):
+            st.session_state.logged_in = True
+            st.session_state.player_id = pid_input
+            st.session_state.treino_selecionado = tipo_treino
+            st.rerun()
+        else:
+            st.error("ID Inválido.")
+
+# --- TELA 2: CAMPO DE TREINAMENTO (SISTEMA DE MÓDULOS ATUALIZADO) ---
+else:
+    st.markdown(f"### 🏟️ CT GOAT TV | ATLETA: {st.session_state.player_id}")
+    
+    fases_config = {
+        "DRIBLE": """{
+            1: {gates:[{x1:60,x2:120,y:320},{x1:60,x2:120,y:150},{x1:200,x2:260,y:150},{x1:200,x2:260,y:320}], enemies:[]},
+            2: {gates:[{x1:40,x2:100,y:320},{x1:130,x2:190,y:200},{x1:220,x2:280,y:80}], enemies:[]},
+            3: {gates:[{x1:130,x2:190,y:60}], enemies:[
+                {x:160, y:280, range:100, speed:2.0, dir:1},
+                {x:160, y:150, range:140, speed:2.8, dir:-1}
+            ]}
+        }""",
+        "PASSE": "{1: {gates:[{x1:130,x2:190,y:100}], enemies:[]}, 2: {gates:[{x1:40,x2:100,y:150}], enemies:[]}, 3: {gates:[{x1:220,x2:280,y:150}], enemies:[]}}",
+        "FINALIZACAO": "{1: {gates:[{x1:100,x2:220,y:120}], enemies:[]}, 2: {gates:[{x1:80,x2:240,y:100}], enemies:[]}, 3: {gates:[{x1:140,x2:180,y:80}], enemies:[]}}",
+        "DEFESA": "{1: {gates:[{x1:40,x2:280,y:230}], enemies:[]}, 2: {gates:[{x1:60,x2:260,y:180}], enemies:[]}, 3: {gates:[{x1:110,x2:210,y:150}], enemies:[]}}"
+    }
+
+    game_code = f"""
+    <div style="display: flex; justify-content: center; align-items: center; flex-direction: column;">
+        <div id="hud" style="color: white; font-family: monospace; margin-bottom: 8px; font-size: 11px; background: rgba(0,0,0,0.9); padding: 5px 15px; border-radius: 20px; border: 1px solid #ffd700; width: 300px; display: flex; justify-content: space-between;">
+            <span>ID: <b style="color: #ffd700;">{st.session_state.player_id}</b></span>
+            <span>ETAPA: <b id="phaseDisp" style="color: #0f0;">1/3</b></span>
+            <span>SCORE: <b id="scoreDisp" style="color: #0f0;">1000</b></span>
         </div>
-        <div id="jb" style="position:absolute; bottom:15px; left:15px; width:80px; height:80px; background:rgba(255,255,255,0.1); border-radius:50%; z-index:100;"><div id="js" style="position:absolute; top:20px; left:20px; width:40px; height:40px; background:rgba(255,255,255,0.3); border-radius:50%;"></div></div>
-        <button id="btnA" style="position:absolute; bottom:15px; right:15px; width:65px; height:65px; background:#4A90E2; color:white; border-radius:50%; font-weight:bold; font-size:24px; border:none; z-index:100;">A</button>
+        <canvas id="gameCanvas" width="320" height="460" style="background: #1e3d1a; border: 4px solid #333; border-radius: 10px; touch-action: none;"></canvas>
     </div>
-    <style>.tgt{width:32px;height:32px;background:rgba(255,215,0,0.2);border:2px dashed gold;border-radius:50%;position:absolute;}.act{background:rgba(255,215,0,0.8);box-shadow:0 0 15px gold;}</style>
+
     <script>
-        const p=document.getElementById('p'), aim=document.getElementById('aim'), btnA=document.getElementById('btnA'), pb=document.getElementById('pb'), opp=document.getElementById('opp'), tgts=document.querySelectorAll('.tgt'), f=document.getElementById('f');
-        const ball=document.createElement('div'); ball.style.cssText="width:12px;height:12px;background:white;border-radius:50%;position:absolute;display:none;z-index:40;"; f.appendChild(ball);
-        let jX=0, jY=0, hits=0, tries=10, passing=false, pwr=0, pAct=false, oD=4, curT=1;
-        function upT(){ tgts.forEach((t,i)=>{t.className=i===curT?'tgt act':'tgt';}); }
-        document.getElementById('jb').ontouchstart=(e)=>{this.dr=true; aim.style.display='block'; e.preventDefault();};
-        window.ontouchmove=(e)=>{ 
-            if(!this.dr)return; let t=e.touches[0], r=document.getElementById('jb').getBoundingClientRect(), dx=t.clientX-(r.left+40), dy=t.clientY-(r.top+40), d=Math.min(Math.sqrt(dx*dx+dy*dy),40), a=Math.atan2(dy,dx); 
-            jX=Math.cos(a); jY=Math.sin(a); 
-            document.getElementById('js').style.transform=`translate(${jX*(d/40)*25}px, ${jY*(d/40)*25}px)`; 
-            aim.style.transform=`rotate(${(a*180/Math.PI)+90}deg)`; 
-        };
-        window.ontouchend=()=>{this.dr=false; aim.style.display='none';};
-        btnA.onpointerdown=()=>{ if(!passing && tries>0){ pAct=true; pwr=0; } };
-        window.onpointerup=()=>{ if(pAct){ pAct=false; shoot(); } };
-        function shoot(){
-            passing=true; tries--; document.getElementById('t_ui').innerHTML=tries; ball.style.display='block';
-            let bx=p.offsetLeft+8, by=p.offsetTop+8, spd=(pwr>40&&pwr<60)?14:(pwr>=60?22:6), vx=jX*spd, vy=jY*spd;
-            let anim=setInterval(()=>{
-                bx+=vx; by+=vy; ball.style.left=bx+'px'; ball.style.top=by+'px';
-                let tr=tgts[curT].getBoundingClientRect(), br=ball.getBoundingClientRect(), or=opp.getBoundingClientRect();
-                if(!(br.right<tr.left||br.left>tr.right||br.bottom<tr.top||br.top>tr.bottom)){ hits++; curT=(curT+1)%3; upT(); endB(anim); }
-                else if(!(br.right<or.left||br.left>or.right||br.bottom<or.top||br.top>or.bottom)||bx<0||bx>f.offsetWidth||by<0||by>f.offsetHeight){ endB(anim); }
-            }, 20);
-        }
-        function endB(a){ clearInterval(a); ball.style.display='none'; passing=false; pwr=0; pb.style.height='0%'; document.getElementById('h_ui').innerHTML=hits; if(tries<=0) window.parent.location.href=window.parent.location.href.split('?')[0]+"?p_score="+hits*200; }
-        function loop(){ if(pAct && pwr<100){ pwr+=3.5; pb.style.height=pwr+'%'; } let ox=opp.offsetLeft; if(ox>f.offsetWidth*0.85||ox<f.offsetWidth*0.06) oD*=-1; opp.style.left=(ox+oD)+'px'; requestAnimationFrame(loop); }
-        upT(); loop();
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreDisp = document.getElementById('scoreDisp');
+        const phaseDisp = document.getElementById('phaseDisp');
+
+        // VELOCIDADE CALIBRADA (Mais controlada)
+        let player = {{ x: 160, y: 410, speed: 2.8 }};
+        let ball = {{ x: 160, y: 385 }};
+        let score = 1000;
+        let currentPhase = 1;
+        let currentGate = 0;
+        let direction = 1; 
+        let gameState = 'PLAYING'; // PLAYING, COUNTDOWN, FINISHED
+        let countdown = 0;
+        let fallenCones = [];
+
+        const phases = {fases_config[st.session_state.treino_selecionado]};
+        const joy = {{ x: 60, y: 385, baseRadius: 35, currX: 60, currY: 385, active: false }};
+
+        function getScale(y) {{ return (y / 460) * 0.55 + 0.45; }}
+
+        function resetPosition() {{
+            player.x = 160; player.y = 410;
+            ball.x = 160; ball.y = 385;
+            currentGate = 0;
+            direction = 1;
+            gameState = 'COUNTDOWN';
+            countdown = 3;
+            let timer = setInterval(() => {{
+                countdown--;
+                if(countdown <= 0) {{
+                    clearInterval(timer);
+                    gameState = 'PLAYING';
+                }}
+            }}, 1000);
+        }}
+
+        function update() {{
+            if (gameState === 'FINISHED') return;
+
+            if (gameState === 'PLAYING') {{
+                if (joy.active) {{
+                    let dx = joy.currX - joy.x, dy = joy.currY - joy.y, d = Math.hypot(dx, dy);
+                    if (d > 0) {{
+                        let vx = (dx/d)*player.speed, vy = (dy/d)*player.speed;
+                        
+                        // LIMITES DE BORDA (Paredão Invisível)
+                        let nextX = player.x + vx;
+                        let nextY = player.y + vy;
+                        if(nextX > 15 && nextX < 305) player.x = nextX;
+                        if(nextY > 15 && nextY < 445) player.y = nextY;
+                        
+                        ball.x += (player.x + vx*5 - ball.x) * 0.15;
+                        ball.y += (player.y + vy*5 - ball.y) * 0.15;
+                    }}
+                }}
+
+                let phaseData = phases[currentPhase];
+                // Inimigos
+                if(phaseData.enemies) {{
+                    phaseData.enemies.forEach(e => {{
+                        e.x += e.speed * e.dir;
+                        if (Math.abs(e.x - 160) > e.range/2) e.dir *= -1;
+                        if (Math.hypot(player.x - e.x, player.y - e.y) < 18*getScale(e.y)) score -= 0.5;
+                    }});
+                }}
+
+                // Cones
+                let currentGates = phaseData.gates;
+                currentGates.forEach((g, i) => {{
+                    let id1 = `p${{currentPhase}}g${{i}}a`, id2 = `p${{currentPhase}}g${{i}}b`;
+                    let s = getScale(g.y);
+                    if (!fallenCones.includes(id1) && Math.hypot(player.x-g.x1, player.y-g.y) < 14*s) {{ fallenCones.push(id1); score -= 50; }}
+                    if (!fallenCones.includes(id2) && Math.hypot(player.x-g.x2, player.y-g.y) < 14*s) {{ fallenCones.push(id2); score -= 50; }}
+                }});
+                scoreDisp.innerText = Math.floor(score);
+
+                // Passagem de Portão e Troca de Módulo
+                if (currentGates.length > 0) {{
+                    let gate = currentGates[currentGate];
+                    if (Math.hypot(ball.x - (gate.x1+gate.x2)/2, ball.y - gate.y) < 25) {{
+                        currentGate += direction;
+                        if (currentGate >= currentGates.length) {{
+                            if (currentPhase < 3) {{ 
+                                currentPhase++; 
+                                phaseDisp.innerText = currentPhase + "/3";
+                                resetPosition(); // VOLTA PARA BAIXO E CONTAGEM
+                            }} else {{ 
+                                gameState = 'FINISHED'; 
+                                alert("TREINO CONCLUÍDO! SCORE: " + Math.floor(score)); 
+                            }}
+                        }}
+                    }}
+                }}
+            }}
+            render();
+            requestAnimationFrame(update);
+        }}
+
+        function render() {{
+            ctx.fillStyle = '#1e3d1a'; ctx.fillRect(0,0,320,460);
+            
+            // Gramado
+            ctx.strokeStyle = "rgba(255,255,255,0.05)";
+            for(let i=-50; i<=370; i+=40) {{
+                ctx.beginPath(); ctx.moveTo(160, -50); ctx.lineTo(i*1.5 - 80, 460); ctx.stroke();
+            }}
+
+            let phaseData = phases[currentPhase];
+            let drawList = [];
+            phaseData.gates.forEach((g, i) => drawList.push({{ type: 'gate', y: g.y, data: g, index: i }}));
+            if(phaseData.enemies) phaseData.enemies.forEach(e => drawList.push({{ type: 'enemy', y: e.y, data: e }}));
+            drawList.push({{ type: 'player', y: player.y }});
+            drawList.push({{ type: 'ball', y: ball.y }});
+            drawList.sort((a, b) => a.y - b.y);
+
+            drawList.forEach(obj => {{
+                let s = getScale(obj.y);
+                if (obj.type === 'gate') {{
+                    // Desenho dos Cones
+                    let isDownA = fallenCones.includes(`p${{currentPhase}}g${{obj.index}}a`);
+                    let isDownB = fallenCones.includes(`p${{currentPhase}}g${{obj.index}}b`);
+                    ctx.fillStyle = isDownA ? "rgba(0,0,0,0.2)" : "#ff6600";
+                    ctx.beginPath(); ctx.moveTo(obj.data.x1-8*s, obj.data.y); ctx.lineTo(obj.data.x1+8*s, obj.data.y); ctx.lineTo(obj.data.x1, obj.data.y-22*s); ctx.fill();
+                    ctx.fillStyle = isDownB ? "rgba(0,0,0,0.2)" : "#ff6600";
+                    ctx.beginPath(); ctx.moveTo(obj.data.x2-8*s, obj.data.y); ctx.lineTo(obj.data.x2+8*s, obj.data.y); ctx.lineTo(obj.data.x2, obj.data.y-22*s); ctx.fill();
+                    
+                    if (obj.index === currentGate && gameState === 'PLAYING') {{
+                        ctx.strokeStyle = "rgba(0,255,0,0.5)"; ctx.setLineDash([5, 5]);
+                        ctx.beginPath(); ctx.moveTo(obj.data.x1, obj.data.y); ctx.lineTo(obj.data.x2, obj.data.y); ctx.stroke();
+                        ctx.setLineDash([]);
+                    }}
+                }} else if (obj.type === 'enemy') {{
+                    ctx.fillStyle="rgba(0,0,0,0.3)"; ctx.beginPath(); ctx.ellipse(obj.data.x, obj.data.y, 14*s, 6*s, 0, 0, Math.PI*2); ctx.fill();
+                    ctx.fillStyle="#ff3333"; ctx.fillRect(obj.data.x-9*s, obj.data.y-28*s, 18*s, 22*s);
+                }} else if (obj.type === 'player') {{
+                    ctx.fillStyle="rgba(0,0,0,0.3)"; ctx.beginPath(); ctx.ellipse(player.x, player.y, 12*s, 5*s, 0, 0, Math.PI*2); ctx.fill();
+                    ctx.fillStyle="#ffd700"; ctx.fillRect(player.x-8*s, player.y-28*s, 16*s, 22*s);
+                    ctx.fillStyle="#d2b48c"; ctx.beginPath(); ctx.arc(player.x, player.y-35*s, 7*s, 0, Math.PI*2); ctx.fill();
+                }} else if (obj.type === 'ball') {{
+                    ctx.fillStyle="white"; ctx.beginPath(); ctx.arc(ball.x, ball.y, 6*s, 0, Math.PI*2); ctx.fill();
+                    ctx.strokeStyle="#000"; ctx.lineWidth=1; ctx.stroke();
+                }}
+            }});
+
+            // Overlay de Contagem
+            if(gameState === 'COUNTDOWN') {{
+                ctx.fillStyle = "rgba(0,0,0,0.4)"; ctx.fillRect(0,0,320,460);
+                ctx.fillStyle = "#ffd700"; ctx.font = "bold 60px monospace"; ctx.textAlign = "center";
+                ctx.fillText(countdown, 160, 230);
+                ctx.font = "14px monospace"; ctx.fillText("PREPARE-SE PARA O PRÓXIMO MÓDULO", 160, 260);
+            }}
+
+            // Joystick
+            ctx.beginPath(); ctx.arc(joy.x, joy.y, 35, 0, Math.PI*2); ctx.fillStyle='rgba(255,255,255,0.1)'; ctx.fill();
+            ctx.beginPath(); ctx.arc(joy.currX, joy.currY, 15, 0, Math.PI*2); ctx.fillStyle=gameState==='PLAYING'?'#0f0':'#555'; ctx.fill();
+        }}
+
+        canvas.addEventListener('pointerdown', e => {{ const r=canvas.getBoundingClientRect(); if(Math.hypot(e.clientX-r.left-joy.x, e.clientY-r.top-joy.y)<50) joy.active=true; }});
+        canvas.addEventListener('pointermove', e => {{ if(!joy.active) return; const r=canvas.getBoundingClientRect(); let dx=e.clientX-r.left-joy.x, dy=e.clientY-r.top-joy.y, d=Math.min(Math.hypot(dx,dy),35), a=Math.atan2(dy,dx); joy.currX=joy.x+Math.cos(a)*d; joy.currY=joy.y+Math.sin(a)*d; }});
+        canvas.addEventListener('pointerup', () => {{ joy.active=false; joy.currX=joy.x; joy.currY=joy.y; }});
+        update();
     </script>
     """
-    components.html(game_html, height=500)
-    if st.button("⬅️ HUB"): st.session_state.pagina = 'hub'; st.rerun()
 
-# --- SALA 3: VELOCIDADE (INVISÍVEL + FLASH) ---
-elif st.session_state.pagina == 'vel':
-    st.markdown("<h2 style='text-align:center;'>⚡ REFLEXO FANTASMA</h2>", unsafe_allow_html=True)
-    # [Mantém o código da Velocidade blindado]
-    if st.button("⬅️ HUB"): st.session_state.pagina = 'hub'; st.rerun()
+    components.html(game_code, height=540)
+    
+    if st.button("FINALIZAR E SALVAR EVOLUÇÃO", use_container_width=True):
+        aplicar_evolucao(st.session_state.player_id, st.session_state.treino_selecionado, 1000)
+        st.success(f"Estatísticas atualizadas para {st.session_state.player_id}!")
+        st.session_state.logged_in = False
+        st.rerun()
 
-# --- SALA 4: CHUTE (CORUJAS) ---
-elif st.session_state.pagina == 'chute':
-    st.markdown("<h2 style='text-align:center;'>🚀 FINALIZAÇÃO GOAT TV</h2>", unsafe_allow_html=True)
-    # [Mantém o código do Chute blindado]
-    if st.button("⬅️ HUB"): st.session_state.pagina = 'hub'; st.rerun()
-
-# SISTEMA GOAT TV BLINDADO - 2026
+st.sidebar.markdown("---")
+st.sidebar.write("**GOAT TV FEDERATION**")
+st.sidebar.caption("SISTEMA G-PERSPECTIVE 2.5D | v3.0")
