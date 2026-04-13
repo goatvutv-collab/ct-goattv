@@ -3,7 +3,12 @@ import json
 import os
 from PIL import Image
 
-# --- CONFIGURAÇÃO DE DIRETÓRIOS ---
+# Importação das Salas (Módulos de Setor)
+import defesa
+import meio_campo
+import ataque
+
+# --- CONFIGURAÇÃO DE DIRETÓRIOS (PERSISTÊNCIA RENDER) ---
 DB_DIR = "/app/fotos_atletas" if os.path.exists("/app/fotos_atletas") else "fotos_atletas"
 DB_FILE = os.path.join(DB_DIR, "jogadores_goat.json")
 
@@ -20,24 +25,23 @@ def salvar_db(dados):
 
 def processar_resultado_treino(id_atleta, modulo, score):
     """
-    Esta é a função que o Lobby usa para calcular o desempenho.
-    Ela aplica a Lei da Compensação (3x3) do Dossiê.
+    Processa o desempenho e aplica a Lei da Compensação (3x3).
     """
     db = carregar_db()
+    if id_atleta not in db: return None
+    
     atleta = db[id_atleta]
     
-    # Exemplo: Se for o Módulo 11 (Drible)
+    # Exemplo de lógica para o Módulo 11 (Drible)
     if modulo == "DRIBLE":
-        ganho = (score / 1000) * 2.5  # Max +2.5
-        perda = (score / 1000) * 1.5  # Max -1.5
+        ganho = (score / 1000) * 2.5
+        perda = (score / 1000) * 1.5
         
-        # Sobe DNA
         atleta["stats"]["Drible"] += ganho
         atleta["stats"]["Controle"] += ganho
-        # Desce Trava
         atleta["stats"]["Defesa"] -= perda
         
-    # Atualiza o Overall Geral (Média simples para exemplo)
+    # Recalcula Overall Geral
     atleta["overall"] = sum(atleta["stats"].values()) / len(atleta["stats"])
     
     db[id_atleta] = atleta
@@ -49,7 +53,7 @@ st.set_page_config(page_title="GOAT TV - CENTRAL DE INTELIGÊNCIA", layout="cent
 
 if 'auth' not in st.session_state: st.session_state.auth = False
 
-# TELA DE ACESSO
+# TELA DE ACESSO / REGISTRO
 if not st.session_state.auth:
     st.markdown("<h1 style='text-align: center; color: #ffd700;'>🏟️ CT GOAT TV</h1>", unsafe_allow_html=True)
     id_user = st.text_input("ID DO ATLETA:").upper().strip()
@@ -63,14 +67,16 @@ if not st.session_state.auth:
                 st.session_state.auth = True
                 st.rerun()
         else:
-            # CADASTRO NOVO (Regra de Idade)
+            st.info("Novo Recruta detectado! Preencha sua ficha:")
             nome = st.text_input("NOME COMPLETO:")
             idade = st.number_input("IDADE:", min_value=14, max_value=45, value=18)
             foto = st.file_uploader("FOTO DE PERFIL:", type=['jpg', 'png', 'jpeg'])
             
             if st.button("GERAR FICHA CADASTRAL"):
                 if nome and foto:
+                    # Regra de Overall por Idade
                     base = 85 if idade > 22 else (80 if 20 <= idade <= 22 else 75)
+                    
                     foto_path = os.path.join(DB_DIR, f"{id_user}.png")
                     Image.open(foto).save(foto_path)
                     
@@ -82,26 +88,50 @@ if not st.session_state.auth:
                     st.success("Ficha Criada! Acesse agora.")
                     st.rerun()
 
-# LOBBY ATIVO (CENTRAL DE DADOS)
+# LOBBY ATIVO (PAINEL DO JOGADOR)
 else:
     perfil = st.session_state.perfil
     
     # Scout Card Lateral
     with st.sidebar:
-        st.image(perfil["foto"], use_container_width=True)
+        if os.path.exists(perfil["foto"]):
+            st.image(perfil["foto"], use_container_width=True)
         st.markdown(f"<h3 style='text-align: center;'>{perfil['nome']}</h3>", unsafe_allow_html=True)
         st.metric("OVERALL", f"{perfil['overall']:.1f}")
         st.write(f"**DNA:** {perfil['dna']}")
-        if st.button("LOGOUT"):
+        if st.button("SAIR DO SISTEMA"):
             st.session_state.auth = False
             st.rerun()
 
-    st.title("Painel de Desempenho")
+    st.title("Central de Comandos")
+    st.write("Selecione o setor para abrir a sala de treinamento:")
     
-    # Portais de acesso às salas
+    # Portais de acesso às salas (Definem o portal na session_state)
     col1, col2, col3 = st.columns(3)
-    with col1: st.button("🛡️ SALA DEFESA", use_container_width=True)
-    with col2: st.button("⚙️ SALA MEIO", use_container_width=True)
+    with col1:
+        if st.button("🛡️ SALA DEFESA", use_container_width=True):
+            st.session_state.portal = "DEF"
+    with col2:
+        if st.button("⚙️ SALA MEIO", use_container_width=True):
+            st.session_state.portal = "MEI"
+    with col3:
+        if st.button("🎯 SALA ATAQUE", use_container_width=True):
+            st.session_state.portal = "ATQ"
+
+    # REDIRECIONAMENTO PARA AS CÉLULAS TÉCNICAS
+    st.markdown("---")
+    portal_ativo = st.session_state.get('portal')
+
+    if portal_ativo == "DEF":
+        defesa.mostrar_sala_defesa()
+    elif portal_ativo == "MEI":
+        meio_campo.mostrar_sala_meio()
+    elif portal_ativo == "ATQ":
+        ataque.mostrar_sala_ataque()
+    else:
+        st.info("Aguardando seleção de setor...")
+
+st.sidebar.caption("GOAT TV FEDERATION © 2026")
     with col3: 
         if st.button("🎯 SALA ATAQUE", use_container_width=True):
             st.session_state.sala = "ATAQUE"
