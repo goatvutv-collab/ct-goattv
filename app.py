@@ -16,7 +16,6 @@ PESOS = {
     "DEF": {"Drible": 1, "Passe": 3, "Defesa": 5, "Físico": 5, "Finalização": 1, "Velocidade": 3}
 }
 
-# REGRAS DOS 12 ARQUÉTIPOS (+3 SOBE / -3 DESCE)
 REGRAS_TREINO = {
     "O Xerife":          {"sobe": ["Defesa", "Físico", "Passe"], "desce": ["Velocidade", "Drible", "Finalização"]},
     "O Libero":          {"sobe": ["Passe", "Defesa", "Drible"], "desce": ["Físico", "Finalização", "Velocidade"]},
@@ -42,31 +41,26 @@ def carregar_db():
 def salvar_db(dados):
     with open(DB_FILE, "w") as f: json.dump(dados, f, indent=4)
 
-def calcular_overall(atleta):
+def calcular_overall_ponderado(atleta):
     stats, pos, alt = atleta["stats"], atleta["posicao"], atleta["altura"]
     pesos_pos = PESOS.get(pos, PESOS["MEI"])
     ovr_base = sum(stats[s] * pesos_pos[s] for s in pesos_pos) / sum(pesos_pos.values())
     bonus = 1 if (pos == "DEF" and alt >= 1.85) or (pos == "ATA" and alt >= 1.88) else 0
     return int(ovr_base + bonus + 0.5)
 
-def processar_treino(id_atleta, arquetipo_alvo, score):
+def processar_treino_master(id_atleta, arquetipo_alvo, score):
     db = carregar_db()
     atleta = db[id_atleta]
     regra = REGRAS_TREINO.get(arquetipo_alvo)
     rendimento = (score / 2500)
     
-    # 1. Ajuste de Atributos
-    for s in regra["sobe"]: atleta["stats"][s] = round(atleta["stats"][s] + rendimento, 1)
-    for d in regra["desce"]: atleta["stats"][d] = round(atleta["stats"][d] - (rendimento * 0.4), 1)
+    for s in regra["sobe"]: atleta["stats"][s] = round(atleta["stats"].get(s, 80) + rendimento, 1)
+    for d in regra["desce"]: atleta["stats"][d] = round(atleta["stats"].get(d, 80) - (rendimento * 0.4), 1)
     
-    # 2. Maestria
-    atleta["maestria"][arquetipo_alvo] = min(100.0, atleta["maestria"][arquetipo_alvo] + (score / 350))
+    atleta["maestria"][arquetipo_alvo] = min(100.0, atleta["maestria"].get(arquetipo_alvo, 0) + (score / 350))
+    if atleta["maestria"][arquetipo_alvo] >= 90: atleta["dna"] = f"ESPECIALISTA: {arquetipo_alvo.upper()}"
     
-    # 3. DNA Especialista
-    if atleta["maestria"][arquetipo_alvo] >= 90:
-        atleta["dna"] = f"ESPECIALISTA: {arquetipo_alvo.upper()}"
-    
-    atleta["overall"] = calcular_overall(atleta)
+    atleta["overall"] = calcular_overall_ponderado(atleta)
     db[id_atleta] = atleta
     salvar_db(db)
     return atleta
@@ -78,9 +72,8 @@ if 'check_id' not in st.session_state: st.session_state.check_id = False
 
 if not st.session_state.auth:
     st.markdown("<h1 style='text-align: center; color: #ffd700;'>🏟️ CT GOAT TV</h1>", unsafe_allow_html=True)
-    id_user = st.text_input("ID DE ATLETA (Ex: GOAT01):").upper().strip()
+    id_user = st.text_input("DIGITE SEU ID DE ATLETA (Ex: GOAT01):").upper().strip()
     
-    # BOTÃO VERIFICAR STATUS
     if st.button("🔍 VERIFICAR STATUS DO ATLETA", use_container_width=True):
         st.session_state.check_id = True
 
@@ -95,38 +88,46 @@ if not st.session_state.auth:
             st.warning("ID não encontrado. Crie sua ficha:")
             nome = st.text_input("NOME COMPLETO:")
             idade = st.number_input("IDADE:", 14, 45, 17)
-            tipo = st.radio("SITUAÇÃO:", ["Iniciante (Promessa)", "Já jogo (Veterano)"])
+            tipo = st.radio("SITUAÇÃO NO FUTEBOL:", ["Iniciante (Promessa)", "Já jogo (Veterano)"])
+            
             c1, c2 = st.columns(2)
             with c1: alt = st.number_input("ALTURA (m):", 1.50, 2.15, 1.75)
-            with c2: pos = st.selectbox("POSIÇÃO:", ["ATA", "MEI", "DEF"])
+            with c2: pos = st.selectbox("POSIÇÃO PRINCIPAL:", ["ATA", "MEI", "DEF"])
             
-            arq_ini = st.selectbox("QUAL ARQUÉTIPO VOCÊ QUER SER?", list(REGRAS_TREINO.keys()))
+            arq_ini = st.selectbox("QUAL ARQUÉTIPO VOCÊ DESEJA SEGUIR?", list(REGRAS_TREINO.keys()))
             
-            if st.button("FINALIZAR REGISTRO"):
-                # Lógica de Piso por Idade
-                if idade <= 17: base = 75.0
-                elif idade <= 21: base = 80.0
-                elif idade <= 25: base = 83.0
-                else: base = 85.0
-                
-                if tipo == "Já jogo (Veterano)": base = 85.0 # Pode ser ajustado com slider se quiser
-                
-                stats_ini = {k: base for k in ["Drible", "Passe", "Defesa", "Físico", "Finalização", "Velocidade"]}
-                maestria_ini = {m: (40.0 if m == arq_ini else 0.0) for m in REGRAS_TREINO.keys()}
-                
-                db[id_user] = {
-                    "nome": nome, "idade": idade, "altura": alt, "posicao": pos,
-                    "overall": base, "dna": f"{tipo} ({arq_ini})", "foto": f"{DB_DIR}/{id_user}.png",
-                    "stats": stats_ini, "maestria": maestria_ini
-                }
-                db[id_user]["overall"] = calcular_overall(db[id_user])
-                salvar_db(db); st.success("✅ Ficha Criada! Clique em Verificar Status.")
+            if tipo == "Já jogo (Veterano)":
+                base_ovr = st.slider("Qual seu Overall atual em campo?", 80, 95, 85)
+            else:
+                if idade <= 17: base_ovr = 75.0
+                elif idade <= 21: base_ovr = 80.0
+                elif idade <= 25: base_ovr = 83.0
+                else: base_ovr = 85.0
+
+            foto = st.file_uploader("SUA FOTO (SCOUT CARD):", type=['jpg', 'png', 'jpeg'])
+
+            if st.button("FINALIZAR REGISTRO E SINCRONIZAR"):
+                if nome and foto:
+                    stats_ini = {k: base_ovr for k in ["Drible", "Passe", "Defesa", "Físico", "Finalização", "Velocidade"]}
+                    maestria_ini = {m: (40.0 if m == arq_ini else 0.0) for m in REGRAS_TREINO.keys()}
+                    
+                    foto_path = os.path.join(DB_DIR, f"{id_user}.png")
+                    Image.open(foto).save(foto_path)
+                    
+                    atleta_obj = {
+                        "nome": nome, "idade": idade, "altura": alt, "posicao": pos,
+                        "overall": base_ovr, "dna": f"{tipo} ({arq_ini})", "foto": foto_path,
+                        "stats": stats_ini, "maestria": maestria_ini
+                    }
+                    atleta_obj["overall"] = calcular_overall_ponderado(atleta_obj)
+                    
+                    db[id_user] = atleta_obj
+                    salvar_db(db); st.success("✅ Ficha Criada! Clique em Verificar Status para entrar.")
 
 else:
-    # --- LOBBY STANDBY ---
     perfil = st.session_state.perfil
     with st.sidebar:
-        st.markdown("### 📄 SCOUT CARD")
+        st.markdown("<h2 style='text-align: center;'>📄 SCOUT CARD</h2>", unsafe_allow_html=True)
         if os.path.exists(perfil["foto"]): st.image(perfil["foto"], use_container_width=True)
         st.metric("OVERALL", f"{perfil['overall']}")
         st.write(f"**DNA:** {perfil['dna']}")
@@ -134,16 +135,15 @@ else:
 
     st.title(f"Centro de Treinamento - Atleta {perfil['nome']}")
     
-    # 12 BARRAS DE ARQUÉTIPOS
-    st.subheader("📊 Maestria de Especialização")
+    st.subheader("📊 Maestria de Especialização (Standby)")
     c_def, c_mei, c_atq = st.columns(3)
-    setores = {
+    setores_map = {
         "🛡️ DEFESA": ["O Xerife", "O Libero", "O Carrapato", "O Paredão"],
         "⚙️ MEIO": ["O Maestro", "O Motorzinho", "O Garçom", "O Coringa"],
         "🎯 ATAQUE": ["O Ponta-Liso", "O Pivô", "O Matador", "O Segundo Atacante"]
     }
     
-    for i, (setor, arqs) in enumerate(setores.items()):
+    for i, (setor, arqs) in enumerate(setores_map.items()):
         with [c_def, c_mei, c_atq][i]:
             st.markdown(f"**{setor}**")
             for a in arqs:
@@ -152,7 +152,6 @@ else:
                 st.progress(prog / 100)
 
     st.divider()
-    # Navegação entre salas...
     c1, c2, c3 = st.columns(3)
     with c1: 
         if st.button("🛡️ SETOR DE DEFESA", use_container_width=True): st.session_state.portal = "DEF"
@@ -161,9 +160,14 @@ else:
     with c3: 
         if st.button("🎯 SETOR DE ATAQUE", use_container_width=True): st.session_state.portal = "ATQ"
 
-    # Execução de Treino (Exemplo Ponta-Liso / Slalom U)
-    if st.session_state.get('executando_treino') == "DRIBLE":
-        score = 1500 # Simulação do seu engine de drible
-        st.session_state.perfil = processar_treino(st.session_state.id_logado, "O Ponta-Liso", score)
-        st.session_state.executando_treino = None
-        st.rerun()
+    # Salas...
+    portal = st.session_state.get('portal')
+    if portal == "DEF": defesa.mostrar_sala_defesa()
+    elif portal == "MEI": meio_campo.mostrar_sala_meio()
+    elif portal == "ATQ":
+        ataque.mostrar_sala_ataque()
+        if st.session_state.get('executando_treino') == "DRIBLE":
+            score = 1500 # Simulação
+            st.session_state.perfil = processar_treino_master(st.session_state.id_logado, "O Ponta-Liso", score)
+            st.session_state.executando_treino = None
+            st.rerun()
