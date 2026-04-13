@@ -9,7 +9,7 @@ DB_DIR = "/app/fotos_atletas" if os.path.exists("/app/fotos_atletas") else "foto
 DB_FILE = os.path.join(DB_DIR, "jogadores_goat.json")
 if not os.path.exists(DB_DIR): os.makedirs(DB_DIR)
 
-# --- 2. TABELA DE PESOS (PES) E REGRAS DE TREINO (+3/-3) ---
+# --- 2. TABELAS TÉCNICAS (LÓGICA PES & RPG) ---
 PESOS = {
     "ATA": {"Drible": 5, "Passe": 3, "Defesa": 1, "Físico": 4, "Finalização": 5, "Velocidade": 4},
     "MEI": {"Drible": 4, "Passe": 5, "Defesa": 2, "Físico": 3, "Finalização": 3, "Velocidade": 3},
@@ -31,7 +31,7 @@ REGRAS_TREINO = {
     "Tanque de Explosão":  {"sobe": ["Velocidade", "Físico", "Finalização"], "desce": ["Defesa", "Passe", "Drible"]}
 }
 
-# --- 3. FUNÇÕES TÉCNICAS ---
+# --- 3. FUNÇÕES DE CÁLCULO ---
 def carregar_db():
     if not os.path.exists(DB_FILE): return {}
     try:
@@ -54,14 +54,10 @@ def processar_treino(id_atleta, modulo, score):
     regra = REGRAS_TREINO.get(modulo)
     rendimento = (score / 2500)
     
-    # 1. Atualiza Atributos (+3/-3)
     for s in regra["sobe"]: atleta["stats"][s] = round(atleta["stats"][s] + rendimento, 1)
     for d in regra["desce"]: atleta["stats"][d] = round(atleta["stats"][d] - (rendimento * 0.4), 1)
     
-    # 2. Atualiza Maestria (A Barrinha do Arquétipo)
     atleta["maestria"][modulo] = min(100.0, atleta["maestria"][modulo] + (score / 350))
-    
-    # 3. Se bater 90%, vira Especialista
     if atleta["maestria"][modulo] >= 90: atleta["dna"] = f"ESPECIALISTA: {modulo.upper()}"
     
     atleta["overall"] = calcular_overall(atleta)
@@ -71,67 +67,83 @@ def processar_treino(id_atleta, modulo, score):
 
 # --- 4. INTERFACE ---
 st.set_page_config(page_title="GOAT TV - CT", layout="wide")
-if 'auth' not in st.session_state: st.session_state.auth = False
 
+if 'auth' not in st.session_state: st.session_state.auth = False
+if 'check_id' not in st.session_state: st.session_state.check_id = False
+
+# --- 5. TELA DE ACESSO ---
 if not st.session_state.auth:
-    # TELA DE LOGIN / REGISTRO (Com a lógica de idade e veterano)
     st.markdown("<h1 style='text-align: center; color: #ffd700;'>🏟️ CT GOAT TV</h1>", unsafe_allow_html=True)
-    id_user = st.text_input("ID DE ATLETA:").upper().strip()
+    id_user = st.text_input("DIGITE SEU ID DE ATLETA (Ex: GOAT01):").upper().strip()
     
-    if id_user:
+    btn_check = st.button("🔍 VERIFICAR STATUS DO ATLETA", use_container_width=True)
+    
+    if id_user and (btn_check or st.session_state.check_id):
+        st.session_state.check_id = True
         db = carregar_db()
+        
         if id_user in db:
-            if st.button(f"ENTRAR: {id_user}", use_container_width=True):
+            st.success(f"Atleta {id_user} localizado!")
+            if st.button(f"ENTRAR NO CT", use_container_width=True):
                 st.session_state.perfil, st.session_state.id_logado, st.session_state.auth = db[id_user], id_user, True
                 st.rerun()
         else:
-            st.warning("Novo Registro:")
+            # --- CADASTRO COMPLETO ---
+            st.warning("ID não encontrado. Crie sua ficha abaixo:")
             nome = st.text_input("NOME COMPLETO:")
             idade = st.number_input("IDADE:", 14, 45, 17)
-            tipo = st.radio("TIPO:", ["Iniciante (Promessa)", "Já jogo (Veterano)"])
+            tipo = st.radio("SITUAÇÃO NO FUTEBOL:", ["Iniciante (Promessa)", "Já jogo (Veterano)"])
+            
             c1, c2 = st.columns(2)
-            with c1: alt = st.number_input("ALTURA (m):", 1.50, 2.10, 1.75)
+            with c1: alt = st.number_input("ALTURA (m):", 1.50, 2.15, 1.75)
             with c2: pos = st.selectbox("POSIÇÃO:", ["ATA", "MEI", "DEF"])
-            arq_ini = st.selectbox("ARQUÉTIPO DE INÍCIO:", list(REGRAS_TREINO.keys()))
-            foto = st.file_uploader("FOTO:")
+            
+            arq_ini = st.selectbox("ARQUÉTIPO INICIAL (Sua Especialidade):", list(REGRAS_TREINO.keys()))
+            
+            ovr_base = 75.0 # Padrão
+            if tipo == "Já jogo (Veterano)":
+                ovr_base = st.slider("Qual seu Overall base atual?", 80, 95, 85)
+            else:
+                if 18 <= idade <= 21: ovr_base = 80.0
+                elif 22 <= idade <= 25: ovr_base = 83.0
+                elif idade >= 26: ovr_base = 85.0
 
-            if st.button("GERAR FICHA COM BARRAS DE MAESTRIA"):
-                # Define Base por Idade
-                if idade <= 17: base = 75.0
-                elif idade <= 21: base = 80.0
-                elif idade <= 25: base = 83.0
-                else: base = 85.0
-                
-                if tipo == "Já jogo (Veterano)": base = st.slider("Overall Base:", 80, 95, 85)
-                
-                stats_ini = {k: base for k in ["Drible", "Passe", "Defesa", "Físico", "Finalização", "Velocidade"]}
-                maestria_ini = {m: (40.0 if m == arq_ini else 0.0) for m in REGRAS_TREINO.keys()}
-                
-                foto_path = os.path.join(DB_DIR, f"{id_user}.png")
-                if foto: Image.open(foto).save(foto_path)
-                
-                db[id_user] = {
-                    "nome": nome, "idade": idade, "altura": alt, "posicao": pos,
-                    "overall": base, "dna": f"{tipo} ({arq_ini})", "foto": foto_path,
-                    "stats": stats_ini, "maestria": maestria_ini
-                }
-                salvar_db(db); st.success("Ficha Sincronizada! Logue com seu ID.")
+            foto = st.file_uploader("SUA MELHOR FOTO:")
 
+            if st.button("FINALIZAR REGISTRO E SINCRONIZAR"):
+                if nome and foto:
+                    stats_ini = {k: ovr_base for k in ["Drible", "Passe", "Defesa", "Físico", "Finalização", "Velocidade"]}
+                    # Maestria inicial de 40% no estilo escolhido
+                    maestria_ini = {m: (40.0 if m == arq_ini else 0.0) for m in REGRAS_TREINO.keys()}
+                    
+                    foto_path = os.path.join(DB_DIR, f"{id_user}.png")
+                    Image.open(foto).save(foto_path)
+                    
+                    atleta_obj = {
+                        "nome": nome, "idade": idade, "altura": alt, "posicao": pos,
+                        "overall": ovr_base, "dna": f"{tipo} ({arq_ini})", "foto": foto_path,
+                        "stats": stats_ini, "maestria": maestria_ini
+                    }
+                    atleta_obj["overall"] = calcular_overall(atleta_obj)
+                    
+                    db[id_user] = atleta_obj
+                    salvar_db(db); st.success("✅ Registro concluído! Clique em Verificar novamente."); st.session_state.check_id = False
+
+# --- 6. LOBBY (STANDBY) ---
 else:
-    # --- LOBBY DO JOGADOR ---
     perfil = st.session_state.perfil
     with st.sidebar:
-        st.markdown("### 📄 SCOUT CARD")
+        st.markdown("<h2 style='text-align: center;'>📄 SCOUT CARD</h2>", unsafe_allow_html=True)
         if os.path.exists(perfil["foto"]): st.image(perfil["foto"], use_container_width=True)
         st.metric("OVERALL", f"{perfil['overall']}")
         st.write(f"**DNA:** {perfil['dna']}")
         if st.button("SAIR"): st.session_state.auth = False; st.rerun()
 
-    st.title(f"Centro de Treinamento - Atleta {perfil['nome']}")
+    st.title(f"Bem-vindo ao CT, {perfil['nome'].split()[0]}!")
     
-    # --- AS 12 BARRAS (ÁREA STANDBY) ---
-    st.subheader("📊 Maestria de Estilo de Jogo")
-    col_d, col_m, col_a = st.columns(3)
+    # --- AS 12 BARRAS (SISTEMA DE RPG) ---
+    st.subheader("📊 Maestria de Estilos de Jogo")
+    c_def, c_mei, c_atq = st.columns(3)
     setores = {
         "🛡️ DEFESA": ["Muralha Fixa", "Perseguidor", "Back de Saída", "Antena Tática"],
         "⚙️ MEIO": ["Maestro", "Infiltrador", "Motor de Arque", "Organizador"],
@@ -139,7 +151,7 @@ else:
     }
     
     for i, (setor, modulos) in enumerate(setores.items()):
-        with [col_d, col_m, col_a][i]:
+        with [c_def, c_mei, c_atq][i]:
             st.markdown(f"**{setor}**")
             for m in modulos:
                 prog = perfil["maestria"].get(m, 0)
@@ -147,18 +159,4 @@ else:
                 st.progress(prog / 100)
 
     st.divider()
-    # Botões para os setores...
-    c1, c2, c3 = st.columns(3)
-    with c1: 
-        if st.button("🛡️ DEFESA", use_container_width=True): st.session_state.portal = "DEF"
-    with c2: 
-        if st.button("⚙️ MEIO", use_container_width=True): st.session_state.portal = "MEI"
-    with c3: 
-        if st.button("🎯 ATAQUE", use_container_width=True): st.session_state.portal = "ATQ"
-
-    # Salas... (Seção de execução de treino igual à anterior)
-    if st.session_state.get('executando_treino') == "DRIBLE":
-        # Simulação: O treino de Drible alimenta o "Tanque de Explosão"
-        st.session_state.perfil = processar_treino(st.session_state.id_logado, "Tanque de Explosão", 1500)
-        st.session_state.executando_treino = None
-        st.rerun()
+    # Botões de Setores e Treinos (Mantenha a lógica de chamada dos arquivos .py aqui)
