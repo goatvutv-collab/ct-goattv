@@ -79,7 +79,7 @@ if 'auth' not in st.session_state: st.session_state.auth = False
 if not st.session_state.auth:
     st.markdown("<h1 style='text-align: center; color: #ffd700;'>🏟️ CT GOAT TV</h1>", unsafe_allow_html=True)
     id_user = st.text_input("DIGITE SEU ID DE ATLETA:").upper().strip()
-    
+
     if st.button("🔍 VERIFICAR STATUS", use_container_width=True):
         db = carregar_db()
         if id_user and id_user in db:
@@ -101,36 +101,55 @@ if not st.session_state.auth:
         with c2: pos = st.selectbox("POSIÇÃO:", ["ATA", "MEI", "DEF"])
         arq_ini = st.selectbox("ARQUÉTIPO DESEJADO:", list(REGRAS_TREINO.keys()))
         
-        if st.button("🚀 FINALIZAR REGISTRO E ENTRAR"):
-            base_ovr = 75.0 if idade <= 17 else 82.0
-            stats_ini = {k: base_ovr for k in ["Drible", "Passe", "Defesa", "Físico", "Finalização", "Velocidade"]}
-            maestria_ini = {m: (40.0 if m == arq_ini else 0.0) for m in REGRAS_TREINO.keys()}
-            
-            db = carregar_db()
-            db[id_user] = {
-                "nome": nome, "idade": idade, "altura": alt, "posicao": pos,
-                "overall": base_ovr, "dna": f"{tipo} ({arq_ini})", "foto": f"fotos_atletas/{id_user}.png",
-                "stats": stats_ini, "maestria": maestria_ini
-            }
-            db[id_user]["overall"] = calcular_overall_ponderado(db[id_user])
-            salvar_db(db)
-            st.session_state.perfil = db[id_user]
-            st.session_state.id_logado = id_user
-            st.session_state.auth = True
-            st.rerun()
+        # CAMPO DE FOTO (OPCIONAL)
+        foto = st.file_uploader("SUA MELHOR FOTO (OPCIONAL):", type=['jpg', 'png', 'jpeg'])
 
-# --- 6. LOBBY (AGORA COM AS BARRAS NA LATERAL) ---
+        if st.button("🚀 FINALIZAR REGISTRO E ENTRAR"):
+            if nome: # Só precisa do nome e ID para registrar
+                base_ovr = 75.0 if idade <= 17 else 82.0
+                stats_ini = {k: base_ovr for k in ["Drible", "Passe", "Defesa", "Físico", "Finalização", "Velocidade"]}
+                maestria_ini = {m: (40.0 if m == arq_ini else 0.0) for m in REGRAS_TREINO.keys()}
+                
+                # Lógica da Foto
+                foto_path = "sem_foto" # Marcador caso não tenha foto
+                if foto:
+                    foto_path = f"fotos_atletas/{id_user}.png"
+                    Image.open(foto).save(foto_path)
+                
+                db = carregar_db()
+                db[id_user] = {
+                    "nome": nome, "idade": idade, "altura": alt, "posicao": pos,
+                    "overall": base_ovr, "dna": f"{tipo} ({arq_ini})", "foto": foto_path,
+                    "stats": stats_ini, "maestria": maestria_ini
+                }
+                db[id_user]["overall"] = calcular_overall_ponderado(db[id_user])
+                salvar_db(db)
+                st.session_state.perfil = db[id_user]
+                st.session_state.id_logado = id_user
+                st.session_state.auth = True
+                st.rerun()
+            else:
+                st.warning("O Nome Completo é obrigatório para o registro.")
+
+# --- 6. LOBBY (STANDBY COM SCOUT CARD) ---
 else:
     perfil = st.session_state.perfil
-    
+
     with st.sidebar:
         st.markdown("<h2 style='text-align: center;'>📄 SCOUT CARD</h2>", unsafe_allow_html=True)
-        if os.path.exists(perfil["foto"]): st.image(perfil["foto"], use_container_width=True)
+        
+        # Lógica de exibição da imagem opcional
+        if perfil["foto"] != "sem_foto" and os.path.exists(perfil["foto"]):
+            st.image(perfil["foto"], use_container_width=True)
+        else:
+            # Caso não tenha foto, pode exibir um ícone ou aviso
+            st.info("Atleta sem foto registrada.")
+            
         st.metric("OVERALL", f"{perfil['overall']}")
         st.write(f"**DNA:** {perfil['dna']}")
-        
+
         st.divider()
-        
+
         # --- AS 12 BARRINHAS NA LATERAL ---
         st.markdown("### 📊 MAESTRIA")
         setores_map = {
@@ -138,21 +157,21 @@ else:
             "⚙️ MEIO": ["O Maestro", "O Motorzinho", "O Garçom", "O Coringa"],
             "🎯 ATAQUE": ["O Ponta-Liso", "O Pivô", "O Matador", "O Segundo Atacante"]
         }
-        
+
         for setor, arqs in setores_map.items():
             st.markdown(f"**{setor}**")
             for a in arqs:
                 prog = perfil["maestria"].get(a, 0)
                 st.caption(f"{a}: {prog:.1f}%")
                 st.progress(min(prog / 100, 1.0))
-        
+
         st.divider()
         if st.button("SAIR"): st.session_state.auth = False; st.rerun()
 
-    # --- ÁREA CENTRAL (LIMPA E FOCADA NAS PORTAS) ---
+    # --- ÁREA CENTRAL ---
     st.title(f"Centro de Treinamento - {perfil['nome']}")
-    st.write("Selecione o setor para treinar. Sua evolução é monitorada no Scout Card lateral.")
-    
+    st.write("Foco nos treinamentos! Sua evolução está sendo monitorada na barra lateral.")
+
     c1, c2, c3 = st.columns(3)
     with c1: 
         if st.button("🛡️ SETOR DE DEFESA", use_container_width=True): st.session_state.portal = "DEF"
@@ -162,8 +181,7 @@ else:
         if st.button("🎯 SETOR DE ATAQUE", use_container_width=True): st.session_state.portal = "ATQ"
 
     st.divider()
-    
-    # Execução das Salas
+
     portal = st.session_state.get('portal')
     if portal == "DEF": defesa.mostrar_sala_defesa()
     elif portal == "MEI": meio_campo.mostrar_sala_meio()
