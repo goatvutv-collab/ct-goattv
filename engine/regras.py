@@ -1,4 +1,6 @@
-# Atributos completos baseados nas suas fotos
+# --- BÍBLIA TÉCNICA DA FEDERAÇÃO GOAT TV ---
+
+# Atributos completos (Fotos 1 e 2)
 STATS_BASE_PES = [
     "Habil. ofensiva", "Controle de bola", "Drible", "Passe rasteiro", "Passe alto",
     "Finalização", "Chute colocado", "Efeito", "Cabeçada", "Habil. defensiva",
@@ -17,4 +19,14 @@ REGRAS_TREINO = {
     "O Xerife": {"sobe": ["Desarme", "Habil. defensiva", "Contato físico"], "desce": ["Drible", "Velocidade"]},
     "O Maestro": {"sobe": ["Passe rasteiro", "Controle de bola", "Efeito"], "desce": ["Contato físico", "Desarme"]},
     "O Matador": {"sobe": ["Finalização", "Habil. ofensiva", "Força do chute"], "desce": ["Habil. defensiva", "Resistência"]}
+}
+
+# ESTA É A PARTE QUE ESTAVA FALTANDO E CAUSOU O ERRO:
+REQUISITOS_SKILLS = {
+    "Pedalada Simples": {"Drible": 75, "Velocidade": 70},
+    "Toque Duplo": {"Drible": 80, "Controle de bola": 75},
+    "Elástico": {"Drible": 85, "Equilíbrio implacável": 70},
+    "Chute de Longe": {"Finalização": 82, "Força do chute": 80},
+    "Interceptação": {"Desarme": 80, "Habil. defensiva": 75},
+    "Espírito de Luta": {"Resistência": 85, "Contato físico": 75}
 }
