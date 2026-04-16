@@ -33,12 +33,3 @@ REQUISITOS_SKILLS = {
     "Chute de Longe": {"Finalização": 82, "Força do chute": 80},
     "Interceptação": {"Desarme": 80, "Habil. defensiva": 75}
 }
-REQUISITOS_ESTILOS = {
-    "Artilheiro": ["O Matador", "O Pivô"], 
-    "Infiltrador": ["O Segundo Atacante", "O Coringa"],
-    "Ponta Incisivo": ["O Ponta-Liso", "O Motorzinho"], 
-    "Orquestrador": ["O Maestro", "O Garçom"],
-    "Destruidor": ["O Xerife", "O Carrapato"], 
-    "Líbero (Build Up)": ["O Libero", "O Paredão"]
-}
-
