@@ -1,9 +1,7 @@
 import json
 import os
 
-# Caminho absoluto para evitar erros no deploy
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DB_DIR = os.path.join(BASE_DIR, "fotos_atletas")
+DB_DIR = "fotos_atletas"
 DB_FILE = os.path.join(DB_DIR, "jogadores_goat.json")
 
 def carregar_db():
