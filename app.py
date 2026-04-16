@@ -1,20 +1,24 @@
 import streamlit as st
-from PIL import Image
 import os
-import sys
+import pandas as pd
+import plotly.graph_objects as go
+import plotly.express as px
+from PIL import Image
 
-# Garante que o Python ache as pastas locais no deploy
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-
+# Importando das casinhas modulares
 from database.db_handler import carregar_db, salvar_db
-from engine.calculos import processar_treino_master, calcular_ovr_supremo
-from engine.regras import STATS_BASE_PES, REGRAS_TREINO
-from interface.visual import gerar_radar, desenhar_personalidade
+from engine.regras import REGRAS_TREINO, REQUISITOS_SKILLS, REQUISITOS_ESTILOS
+from engine.calculos import calcular_ovr_supremo, processar_treino_master
+from interface.visual import gerar_radar
 
-st.set_page_config(page_title="GOAT TV", layout="wide")
+# Importando os setores
+import setores.defesa.portal as defesa
+import setores.meio_campo.portal as meio_campo
+import setores.ataque.portal as ataque
 
-# --- LOGIN E RECEPTOR SENSORIAL ---
+st.set_page_config(page_title="GOAT TV - CT SUPREMO", layout="wide", initial_sidebar_state="expanded")
+
 if 'auth' not in st.session_state: st.session_state.auth = False
 
-# [Lógica de receptor sensorial e Login/Registro aqui - use a do turno anterior]
-# Importante: No registro, inicialize os 28 stats da lista STATS_BASE_PES
+# [Aqui entra toda a lógica de LOGIN, REGISTRO e TABS que você mandou, 
+# mas usando as funções importadas acima para processar os dados]
