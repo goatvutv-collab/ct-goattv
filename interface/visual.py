@@ -21,3 +21,15 @@ def desenhar_personalidade(pers):
         st.progress(pers.get("Altruísmo", 50) / 100)
         st.write("**Compostura**")
         st.progress(pers.get("Compostura", 50) / 100)
+
+def exibir_laboratorio_skills(atleta, requisitos_skills):
+    st.subheader("🔭 Laboratório de Skills")
+    for sk, reqs in requisitos_skills.items():
+        if sk not in atleta.get("habilidades", []):
+            # Calcula progresso médio da skill
+            progs = [min(atleta["stats"].get(s, 0)/v, 1.0) for s, v in reqs.items()]
+            media = sum(progs) / len(progs)
+            # Só exibe se o atleta estiver com mais de 70% do requisito pronto
+            if media > 0.7:
+                st.caption(f"**{sk}** ({int(media*100)}%)")
+                st.progress(media)
