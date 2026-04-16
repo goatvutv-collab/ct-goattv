@@ -3,9 +3,8 @@ from .regras import REQUISITOS_SKILLS, REGRAS_TREINO, STATS_BASE_PES
 import streamlit as st
 
 def calcular_ovr_supremo(atleta):
-    # Lógica de cálculo de Overall baseada na posição
     stats, pos = atleta["stats"], atleta["posicao"]
-    # Simplificação de pesos para o exemplo, mantendo a estrutura
+    # Pegamos os atributos base para o cálculo de média
     ovr_base = sum(stats.values()) / len(stats) 
     bonus = 1 if (pos == "DEF" and atleta["altura"] >= 1.85) or (pos == "ATA" and atleta["altura"] >= 1.88) else 0
     return int(ovr_base + bonus + 0.5)
