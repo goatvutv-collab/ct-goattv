@@ -1,6 +1,5 @@
-# --- BÍBLIA TÉCNICA GOAT TV (VERSÃO ÔMEGA FINAL) ---
-
-STATS_BASE_PES = [
+# --- ATRIBUTOS TÉCNICOS ---
+STATS_PES_PADRAO = [
     "Habil. ofensiva", "Controle de bola", "Drible", "Passe rasteiro", "Passe alto",
     "Finalização", "Chute colocado", "Efeito", "Cabeçada", "Habil. defensiva",
     "Desarme", "Força do chute", "Velocidade", "Explosão", "Equilíbrio implacável",
@@ -8,28 +7,36 @@ STATS_BASE_PES = [
     "Chutão", "Reflexos", "Cobertura", "Resistência"
 ]
 
-PESOS_OVR = {
-    "ATA": {"Finalização": 5, "Habil. ofensiva": 5, "Velocidade": 4, "Drible": 4, "Força do chute": 3},
-    "MEI": {"Passe rasteiro": 5, "Passe alto": 5, "Controle de bola": 4, "Visão": 4, "Resistência": 3},
-    "DEF": {"Desarme": 5, "Habil. defensiva": 5, "Contato físico": 4, "Cabeçada": 3, "Velocidade": 3}
+STATS_NIVEL = {
+    "Pior pé frequência": 4, "Pior pé precisão": 4, 
+    "Condição física": 8, "Resistência a lesão": 3
 }
 
+# --- REGRAS DE TREINO (3 SOBE / 3 DESCE) ---
 REGRAS_TREINO = {
-    "O Xerife": {"sobe": ["Desarme", "Habil. defensiva", "Contato físico"], "desce": ["Drible", "Velocidade"]},
-    "O Maestro": {"sobe": ["Passe rasteiro", "Controle de bola", "Efeito"], "desce": ["Contato físico", "Desarme"]},
-    "O Matador": {"sobe": ["Finalização", "Habil. ofensiva", "Força do chute"], "desce": ["Habil. defensiva", "Resistência"]}
+    "O Matador": {"sobe": ["Finalização", "Habil. ofensiva", "Força do chute"], "desce": ["Habil. defensiva", "Resistência", "Desarme"]},
+    "O Xerife": {"sobe": ["Desarme", "Habil. defensiva", "Contato físico"], "desce": ["Drible", "Velocidade", "Passe alto"]},
+    "Goleiro Fixo": {"sobe": ["Reflexos", "Firmeza do goleiro", "Cobertura"], "desce": ["Velocidade", "Drible", "Finalização"]},
+    "Goleiro Linha": {"sobe": ["Reflexos", "Passe rasteiro", "Habil. como goleiro"], "desce": ["Contato físico", "Cabeçada", "Habil. defensiva"]},
+    "O Maestro": {"sobe": ["Passe rasteiro", "Controle de bola", "Efeito"], "desce": ["Contato físico", "Desarme", "Explosão"]},
+    # ... Adicionar os outros 8 conforme a sua lista (Pivô, Ponta-Liso, etc)
 }
 
-# A PEÇA QUE ESTAVA FALTANDO E CAUSOU O ERRO:
-REQUISITOS_ESTILOS = {
-    "Artilheiro": ["O Matador"], 
-    "Orquestrador": ["O Maestro"],
-    "Destruidor": ["O Xerife"]
+# --- ARQUÉTIPOS E COMPATIBILIDADE ---
+ARQUETIPOS_COMPATIBILIDADE = {
+    "Artilheiro": ["CA", "SA"],
+    "Pivô": ["CA"],
+    "Armador Criativo": ["PE", "PD", "SA", "MAT", "MLD", "MLE"],
+    "O Destruidor": ["MAT", "VOL", "ZC"],
+    "Goleiro Ofensivo": ["GOL"],
+    "Goleiro Defensivo": ["GOL"]
 }
 
+# --- LABORATÓRIO DE SKILLS (Requisitos exatos) ---
 REQUISITOS_SKILLS = {
     "Pedalada Simples": {"Drible": 75, "Velocidade": 70},
     "Toque Duplo": {"Drible": 80, "Controle de bola": 75},
     "Chute de Longe": {"Finalização": 82, "Força do chute": 80},
-    "Interceptação": {"Desarme": 80, "Habil. defensiva": 75}
+    "Espírito Guerreiro": {"Resistência": 85, "Raça": 75},
+    "Super Sub": {"Habil. ofensiva": 80, "Compostura": 80}
 }
