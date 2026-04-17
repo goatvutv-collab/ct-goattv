@@ -1,8 +1,12 @@
 # --- app.py ---
 import streamlit as st
-import sys, os, pd, plotly.express as px
+import sys
+import os
+import pandas as pd  # <--- CORREÇÃO AQUI
+import plotly.express as px
 from PIL import Image
 
+# 1. AJUSTE DE AMBIENTE
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from database.db_handler import carregar_db, salvar_db
@@ -12,10 +16,11 @@ from interface.visual import gerar_radar, desenhar_personalidade, exibir_laborat
 
 st.set_page_config(page_title="GOAT TV - CT SUPREMO", layout="wide", initial_sidebar_state="expanded")
 
-if 'auth' not in st.session_state: st.session_state.auth = False
+if 'auth' not in st.session_state:
+    st.session_state.auth = False
 
+# --- TELA DE ACESSO ---
 if not st.session_state.auth:
-    # --- TELA DE ACESSO ---
     st.markdown("<h1 style='text-align: center; color: #ffd700;'>🏟️ CT GOAT TV - VERSÃO ÔMEGA</h1>", unsafe_allow_html=True)
     id_user = st.text_input("ID ATLETA:").upper().strip()
 
@@ -28,11 +33,11 @@ if not st.session_state.auth:
     if id_user and id_user not in carregar_db():
         with st.form("registro_atleta"):
             st.subheader("📝 CONTRATO DE ESTREIA")
-            nome = st.text_input("NOME COMPLETO:")
-            idade = st.number_input("IDADE:", 15, 45, 17)
-            pos = st.selectbox("POSIÇÃO:", ["CA", "SA", "MAT", "MLD", "MLE", "VOL", "ZC", "LD", "LE", "GOL"])
-            alt = st.number_input("ALTURA (m):", 1.5, 2.2, 1.80)
-            peso = st.number_input("PESO (kg):", 50, 130, 75)
+            nome_novo = st.text_input("NOME COMPLETO:")
+            idade_nova = st.number_input("IDADE:", 15, 45, 17)
+            pos_nova = st.selectbox("POSIÇÃO:", ["CA", "SA", "MAT", "MLD", "MLE", "VOL", "ZC", "LD", "LE", "GOL"])
+            alt_nova = st.number_input("ALTURA (m):", 1.5, 2.2, 1.80)
+            peso_novo = st.number_input("PESO (kg):", 50, 130, 75)
             ft = st.file_uploader("FOTO:", type=['jpg', 'png', 'jpeg'])
 
             if st.form_submit_button("🚀 INICIAR CARREIRA"):
@@ -40,13 +45,13 @@ if not st.session_state.auth:
                 path = f"fotos_atletas/{id_user}.png"
                 if ft: Image.open(ft).save(path)
                 db[id_user] = {
-                    "nome": nome, "idade": idade, "altura": alt, "peso": peso, "posicao": pos, 
+                    "nome": nome_novo, "idade": idade_nova, "altura": alt_nova, "peso": peso_novo, "posicao": pos_nova, 
                     "overall": 75, "foto": path, "status": "Saudável", "dna": "Iniciante",
                     "habilidades": [], "maestria": {m: 0.0 for m in REGRAS_TREINO.keys()},
                     "stats": {k: 75.0 for k in STATS_BASE_PES},
                     "stats_fixos": {k: 2 for k in STATS_NIVEL.keys()},
                     "personalidade": {"Altruísmo": 50, "Raça": 50, "Técnica": 50, "Compostura": 50},
-                    "historico_ovr": [{"idade": idade, "ovr": 75}]
+                    "historico_ovr": [{"idade": idade_nova, "ovr": 75}]
                 }
                 salvar_db(db); st.rerun()
 
@@ -61,18 +66,14 @@ else:
         st.write(f"**STATUS:** {p['status']}")
         
         st.divider()
-        st.subheader("🎒 Habilidades (Max 10)")
-        st.write(" • " + "\n • ".join(p["habilidades"]) if p["habilidades"] else "Nenhuma")
-
-        st.divider()
         st.subheader("📊 Maestrias")
-        for m, val in p["maestria"].items():
+        for m, val in p.get("maestria", {}).items():
             if val > 0:
                 st.caption(f"{m}: {val:.1f}%"); st.progress(val/100)
         
         if st.button("SAIR"): st.session_state.auth = False; st.rerun()
 
-    # --- ÁREA CENTRAL ---
+    # CORREÇÃO DO NOME NO TÍTULO
     nome_exibicao = p['nome'].split()[0] if p.get('nome') and p['nome'].strip() else "Atleta"
     st.title(f"Bem-vindo ao CT, {nome_exibicao}")
 
@@ -87,6 +88,16 @@ else:
             if st.button("🎯 ATAQUE", use_container_width=True): st.session_state.portal = "ATQ"
             st.divider()
             exibir_laboratorio_skills(p, REQUISITOS_SKILLS)
+
+        # Import modular dos portais (A alma do CT)
+        import setores.defesa.portal as defesa
+        import setores.meio_campo.portal as meio_campo
+        import setores.ataque.portal as ataque
+        
+        portal = st.session_state.get('portal')
+        if portal == "DEF": defesa.mostrar_sala_defesa()
+        elif portal == "MEI": meio_campo.mostrar_sala_meio()
+        elif portal == "ATQ": ataque.mostrar_sala_ataque()
 
     with tabs[1]:
         desenhar_personalidade(p["personalidade"])
@@ -103,7 +114,7 @@ else:
         df = pd.DataFrame(p.get("historico_ovr", []))
         if not df.empty: st.plotly_chart(px.line(df, x="idade", y="ovr"), use_container_width=True)
 
-    with tabs[3]: # CONFIGURAÇÕES
+    with tabs[3]: # CONFIGURAÇÕES (REEDIÇÃO)
         st.subheader("⚙️ Editar Perfil")
         with st.form("edit_total"):
             new_n = st.text_input("Nome:", value=p["nome"])
