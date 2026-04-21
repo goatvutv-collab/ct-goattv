@@ -60,8 +60,8 @@ if not st.session_state.auth:
                 novo_atleta = {
                     "nome": n, "idade": i, "altura": alt, "peso": peso, "posicao": pos, 
                     "overall": 75, "foto": path, "status": "Saudável", 
-                    "dna": dna_escolhido,       # DNA ATUAL (Mutável)
-                    "dna_origem": dna_escolhido, # DNA FIXO (Registro)
+                    "dna": dna_escolhido,       
+                    "dna_origem": dna_escolhido, 
                     "habilidades": [],
                     "maestria": {m: 0.0 for m in REGRAS_TREINO.keys()},
                     "stats": {k: 75.0 for k in STATS_BASE_PES}, 
@@ -70,7 +70,6 @@ if not st.session_state.auth:
                     "historico_ovr": [{"idade": i, "ovr": 75}], "posicoes": {pos: "A"}
                 }
                 
-                # Calcula o OVR real baseado na altura estratégica logo na criação
                 novo_atleta["overall"] = calcular_ovr_supremo(novo_atleta)
                 db[id_user] = novo_atleta
                 
@@ -86,7 +85,6 @@ else:
         if os.path.exists(p.get("foto", "")): st.image(p["foto"], use_container_width=True)
         st.metric("OVERALL", p["overall"])
 
-        # ARQUÉTIPO DINÂMICO
         arq_atual = definir_arquetipo_master(p, REQUISITOS_ESTILOS)
         st.write(f"**ARQUÉTIPO ATUAL:** {arq_atual}")
         st.write(f"**DNA ORIGEM:** {p.get('dna_origem', 'Nenhum')}")
@@ -125,7 +123,7 @@ else:
                 st.divider()
                 exibir_laboratorio_skills(p, REQUISITOS_SKILLS)
 
-            # --- LÓGICA DE NAVEGAÇÃO DOS PORTAIS (INTEGRAÇÃO TOTAL) ---
+            # --- LÓGICA DE NAVEGAÇÃO DOS PORTAIS (FIXED PATHS) ---
             portal = st.session_state.get('portal')
             st.divider()
             
@@ -133,7 +131,7 @@ else:
                 from setores.defesa.portal import mostrar_sala_defesa
                 mostrar_sala_defesa()
             elif portal == "MEI":
-                from setores.meio.portal import mostrar_sala_meio
+                from setores.meio_campo.portal import mostrar_sala_meio
                 mostrar_sala_meio()
             elif portal == "ATQ":
                 from setores.ataque.portal import mostrar_sala_ataque
