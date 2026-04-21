@@ -3,7 +3,6 @@ import plotly.graph_objects as go
 import streamlit as st
 
 def definir_estilo_exibicao(atleta, requisitos_estilos):
-    """Calcula o 'Estilo de Jogo' (Playstyle) desbloqueado via maestria."""
     maestrias = atleta.get("maestria", {})
     if not any(v > 0 for v in maestrias.values()): return "Promessa"
     dominante = max(maestrias, key=maestrias.get)
@@ -23,5 +22,7 @@ def desenhar_personalidade(pers):
     c1, c2 = st.columns(2)
     with c1:
         st.write(f"🔥 **Raça:** {pers.get('Raça', 50)}%"); st.progress(pers.get('Raça', 50)/100)
+        st.write(f"🎨 **Técnica:** {pers.get('Técnica', 50)}%"); st.progress(pers.get('Técnica', 50)/100)
     with c2:
+        st.write(f"🤝 **Altruísmo:** {pers.get('Altruísmo', 50)}%"); st.progress(pers.get('Altruísmo', 50)/100)
         st.write(f"🧊 **Compostura:** {pers.get('Compostura', 50)}%"); st.progress(pers.get('Compostura', 50)/100)
