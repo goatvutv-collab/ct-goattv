@@ -26,9 +26,7 @@ def salvar_db(dados):
     except: return False
 
 def gerenciar_foto_antiga(caminho_antigo):
-    """Deleta a foto anterior para economizar espaço no sistema."""
+    """Deleta a foto anterior para manter o servidor limpo."""
     if caminho_antigo and os.path.exists(caminho_antigo) and "default.png" not in caminho_antigo:
-        try:
-            os.remove(caminho_antigo)
-        except:
-            pass
+        try: os.remove(caminho_antigo)
+        except: pass
