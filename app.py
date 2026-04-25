@@ -4,10 +4,10 @@ import os, sys, pandas as pd
 from PIL import Image
 from datetime import date
 
-# Injeção de dependências do sistema
+# Injeção de dependências do sistema para garantir caminhos relativos
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-# --- INTEGRAÇÃO COM O MOTOR DE DADOS SUPREMO ---
+# --- INTEGRAÇÃO COM O MOTOR DE DADOS SUPREMO (SUPABASE) ---
 from database.db_handler import (
     carregar_todos_jogadores, 
     buscar_atleta, 
@@ -18,14 +18,14 @@ from engine.regras import STATS_BASE_PES, STATS_NIVEL, REGRAS_TREINO, REQUISITOS
 from engine.calculos import calcular_ovr_supremo, distribuir_stats_iniciais, calcular_idade
 from interface.visual import gerar_radar, desenhar_personalidade, exibir_laboratorio_skills, definir_arquetipo_master
 
-# Configuração de Engine de Interface
+# Configuração de Engine de Interface Streamlit
 st.set_page_config(
     page_title="GOAT TV - CT SUPREMO 2021", 
     layout="wide", 
     initial_sidebar_state="expanded"
 )
 
-# Inicialização de Variáveis de Estado de Sessão (Persistence Layer)
+# Inicialização de Variáveis de Persistência em Sessão
 if 'auth' not in st.session_state: st.session_state.auth = False
 if 'portal' not in st.session_state: st.session_state.portal = None
 if 'perfil' not in st.session_state: st.session_state.perfil = None
@@ -40,7 +40,7 @@ if not st.session_state.auth:
         st.subheader("🔍 Acessar Registro")
         id_user = st.text_input("ID ATLETA (Ex: GOAT-01):").upper().strip()
         if st.button("ENTRAR NO CT", use_container_width=True):
-            # Query Complexa no Supabase via Handler
+            # Query Complexa no Supabase via Handler (Busca e Reconstrução de Stats)
             atleta_encontrado = buscar_atleta(id_user)
             if atleta_encontrado:
                 st.session_state.perfil = atleta_encontrado
@@ -48,12 +48,12 @@ if not st.session_state.auth:
                 st.session_state.auth = True
                 st.rerun()
             else:
-                st.error("ID não localizado na Federação Goat TV.")
+                st.error("ID não localizado na Federação Goat TV. Verifique a grafia ou registre-se.")
 
     with col_reg:
-        # Lógica de Verificação de Existência em Tempo Real
+        # Lógica de Verificação de Existência em Tempo Real no Banco
         if id_user and not buscar_atleta(id_user):
-            with st.form("registro_goat"):
+            with st.form("registro_goat_complexo"):
                 st.subheader("📝 Contrato de Estreia (Nascimento Flat 75)")
                 c1, c2 = st.columns(2)
                 with c1:
@@ -62,22 +62,23 @@ if not st.session_state.auth:
                     pos = st.selectbox("POSIÇÃO:", ["CA", "SA", "MAT", "VOL", "ZC", "LD", "LE", "GOL"])
                 with c2:
                     dna_ini = st.selectbox("DNA (ARQUÉTIPO INICIAL):", list(REGRAS_TREINO.keys()))
-                    alt = st.number_input("ALTURA (m):", 1.50, 2.20, 1.80)
-                    peso = st.number_input("PESO (kg):", 50, 130, 75)
+                    alt = st.number_input("ALTURA (m):", 1.50, 2.20, 1.76)
+                    peso = st.number_input("PESO (kg):", 50, 130, 74)
                 
                 ft = st.file_uploader("FOTO DO PERFIL (UPLOAD PNG/JPG):")
                 
                 if st.form_submit_button("🚀 INICIAR CARREIRA"):
-                    # Processamento de Mídia
+                    # Processamento de Mídia Local (Snapshot para Deploy)
                     path = f"fotos_atletas/{id_user}.png" if ft else "fotos_atletas/default.png"
                     if ft: Image.open(ft).save(path)
                     
                     idade_calc = calcular_idade(nasc)
                     
                     # --- CONSTRUÇÃO SUPREMA PARA O NOVO SQL (ESTRUTURA HÍBRIDA) ---
-                    atleta = {
-                        "nome": id_user,           # Coluna 'nome' (PK)
-                        "nome_completo": nome_atleta, # Coluna 'nome_completo'
+                    # Este dicionário será 'achatado' pelo Handler antes de entrar no Supabase
+                    atleta_payload = {
+                        "nome": id_user,           # Chave Primária SQL
+                        "nome_completo": nome_atleta,
                         "nascimento": nasc.strftime("%Y-%m-%d"), 
                         "idade": idade_calc,
                         "altura": alt, 
@@ -88,32 +89,32 @@ if not st.session_state.auth:
                         "foto": path, 
                         "status": "Saudável",
                         "overall": 75.0,
-                        "stats": distribuir_stats_iniciais(dna_ini), # O Handler fará o flattening
+                        "stats": distribuir_stats_iniciais(dna_ini), # Objeto complexo PES
                         "habilidades": [],
                         "personalidade": {"Raça": 50, "Técnica": 50, "Altruísmo": 50, "Compostura": 50},
                         "stats_fixos": {"Forma física": 4, "Resistência a lesão": 2, "Pior pé frequência": 2, "Pior pé precisão": 2},
                         "historico_ovr": [{"idade": idade_calc, "ovr": 75}]
                     }
                     
-                    # Cálculo de Potencial Inicial
-                    atleta["overall"] = calcular_ovr_supremo(atleta)
+                    # Cálculo de Potencial Via Engine de Cálculo
+                    atleta_payload["overall"] = calcular_ovr_supremo(atleta_payload)
                     
-                    # Persistência via Handler Complexo
-                    if registrar_novo_atleta(atleta):
+                    # Persistência via Handler Complexo (Mapeamento de 15+ colunas SQL)
+                    if registrar_novo_atleta(atleta_payload):
                         st.success("Contrato Blindado! Sincronizando com a Nuvem...")
                         st.rerun()
 
-# --- ÁREA LOGADA (CT INTERNO) ---
+# --- ÁREA LOGADA (COMPLEXO ESPORTIVO INTERNO) ---
 else:
-    # Sincronização de Estado com o Banco de Dados (Evita Desvios de Memória)
+    # Sincronização Obrigatória com o Cloud State (Evita Amnésia do Render)
     p = buscar_atleta(st.session_state.id_logado)
     id_log = st.session_state.id_logado
 
-    # === SIDEBAR: SCOUT CARD (O RG ANALÍTICO DO ATLETA) ===
+    # === SIDEBAR: SCOUT CARD (BIOMETRIA ANALÍTICA) ===
     with st.sidebar:
-        # Renderização Dinâmica de Identidade
-        nome_curto = p.get("nome_completo", p["nome"]).split()[0]
-        st.markdown(f"<h2 style='text-align: center; color: #ffd700;'>{nome_curto}</h2>", unsafe_allow_html=True)
+        # Renderização de Identidade Visual
+        nome_card = p.get("nome_completo", p["nome"]).split()[0]
+        st.markdown(f"<h2 style='text-align: center; color: #ffd700;'>{nome_card}</h2>", unsafe_allow_html=True)
         
         if os.path.exists(p["foto"]): 
             st.image(p["foto"], use_container_width=True)
@@ -121,7 +122,7 @@ else:
         st.metric("OVERALL SUPREMO", f"{p['overall']:.1f}")
         st.divider()
         
-        # Grid de Atributos Bio-Táticos
+        # Grid de Dados Bio-Táticos
         st.write(f"**🧬 DNA ATUAL:** {p['dna']}")
         st.write(f"**🏆 ARQUÉTIPO:** {definir_arquetipo_master(p, REQUISITOS_ESTILOS)}")
         st.write(f"**🎂 IDADE:** {p['idade']} anos")
@@ -130,7 +131,7 @@ else:
         st.write(f"**🏥 STATUS:** {status_emoji} {p['status']}")
         
         if p["status"] == "Lesionado":
-            if st.button("🧊 TRATAMENTO MÉDICO (RECOVERY)"):
+            if st.button("🧊 INICIAR RECOVERY (FISIOTERAPIA)"):
                 salvar_evolucao_treino(id_log, {"status": "Saudável"})
                 st.rerun()
         
@@ -138,24 +139,24 @@ else:
         st.subheader("🎒 Skills Ativas")
         if p.get("habilidades"):
             for sk in p["habilidades"]: st.caption(f"✅ {sk}")
-        else: st.caption("Nenhuma skill desbloqueada via Laboratory.")
+        else: st.caption("Nenhuma skill desbloqueada no Laboratory.")
         
         st.divider()
-        if st.button("🚪 SAIR DO COMPLEXO", use_container_width=True):
+        if st.button("🚪 SAIR DO CT", use_container_width=True):
             st.session_state.auth = False
             st.rerun()
 
-    # --- PAINEL DE CONTROLE CENTRAL ---
+    # --- PAINEL DE CONTROLE CENTRAL (TABS) ---
     st.title(f"Centro de Treinamento - {p.get('nome_completo', p['nome'])}")
     tabs = st.tabs(["🎮 Campo de Treino", "🧠 Atleta", "📈 Evolução", "⚙️ Configurações"])
 
-    with tabs[0]: # CAMPO DE TREINO (INTEGRAÇÃO CANVAS)
+    with tabs[0]: # CAMPO DE TREINO (INTEGRAÇÃO CANVAS E PORTAIS)
         if p["status"] == "Lesionado":
-            st.error("🚑 ACESSO NEGADO: Atleta em observação no Departamento Médico.")
+            st.error("🚑 BLOQUEADO: Atleta inapto para atividades de campo.")
         else:
             col_radar, col_menu = st.columns([1.5, 1])
             with col_radar:
-                # O Radar consome o p["stats"] reconstruído pelo buscar_atleta (complexo)
+                # O Radar utiliza o objeto p['stats'] reconstruído dinamicamente pelo Handler
                 st.plotly_chart(gerar_radar(p["stats"]), use_container_width=True)
             
             with col_menu:
@@ -163,11 +164,12 @@ else:
                 if st.button("🛡️ PORTAL DE DEFESA", use_container_width=True): st.session_state.portal = "DEF"
                 if st.button("⚙️ PORTAL DE MEIO-CAMPO", use_container_width=True): st.session_state.portal = "MEI"
                 if st.button("🎯 PORTAL DE ATAQUE", use_container_width=True): st.session_state.portal = "ATQ"
+                # A CURA PARA A DOR: Botão de Goleiro Ativado no Menu
                 if st.button("🧤 PORTAL DE GOLEIRO", use_container_width=True): st.session_state.portal = "GK"
                 st.divider()
                 exibir_laboratorio_skills(p, REQUISITOS_SKILLS)
 
-            # Navegação Modular (Dynamic Injections)
+            # Injeção de Lógica de Portais Modulares
             st.divider()
             portal_ativo = st.session_state.get('portal')
             if portal_ativo == "DEF":
@@ -184,56 +186,56 @@ else:
                     from setores.goleiro.portal import mostrar_sala_goleiro
                     mostrar_sala_goleiro()
                 except ImportError:
-                    st.warning("🚧 SETOR EM OBRAS: A Federação está finalizando a instalação da Muralha.")
+                    st.warning("🚧 MURALHA EM CONSTRUÇÃO: O setor de Goleiros está recebendo as redes e luvas oficiais.")
 
-    with tabs[1]: # BIOMETRIA E MENTALIDADE
+    with tabs[1]: # BIOMETRIA E MENTALIDADE PES
         col_m, col_f = st.columns(2)
         with col_m:
             desenhar_personalidade(p["personalidade"])
         with col_f:
-            st.markdown("### 🧬 Fisiologia Avançada PES")
+            st.markdown("### 🧬 Fisiologia Avançada (PES Base)")
             fixos = p.get("stats_fixos", {})
             st.write(f"**Pior Pé (Frequência):** {fixos.get('Pior pé frequência', 2)}/4")
             st.write(f"**Pior Pé (Precisão):** {fixos.get('Pior pé precisão', 2)}/4")
             st.write(f"**Forma Física:** {fixos.get('Forma física', 4)}/8")
             st.write(f"**Resistência a Lesão:** {fixos.get('Resistência a lesão', 2)}/3")
 
-    with tabs[2]: # DATA ANALYSIS (EVOLUÇÃO)
+    with tabs[2]: # DATA VISUALIZATION (CRESCIMENTO)
         st.subheader("📈 Curva de Maturação Profissional")
-        df_evolucao = pd.DataFrame(p.get("historico_ovr", []))
-        if not df_evolucao.empty:
+        df_evol = pd.DataFrame(p.get("historico_ovr", []))
+        if not df_evol.empty:
             import plotly.express as px
-            fig = px.line(df_evolucao, x="idade", y="ovr", markers=True, title="Histórico de Overall")
+            fig = px.line(df_evol, x="idade", y="ovr", markers=True, title="Desenvolvimento de Performance")
             fig.update_traces(line_color='#ffd700', line_width=4)
             st.plotly_chart(fig, use_container_width=True)
 
-    with tabs[3]: # GERENCIAMENTO DE CONTRATO (SUPABASE UPDATE)
-        st.subheader("⚙️ Ajustes de Vínculo")
-        with st.form("edicao_perfil_complexa"):
-            new_nome_full = st.text_input("Alterar Nome Completo:", value=p.get("nome_completo", p["nome"]))
-            new_posicao = st.selectbox("Alterar Posição Tática:", ["CA", "SA", "MAT", "VOL", "ZC", "LD", "LE", "GOL"], 
+    with tabs[3]: # ADMINISTRAÇÃO DE CONTRATO (UPDATE SUPABASE)
+        st.subheader("⚙️ Gerenciar Vínculo com a Goat TV")
+        with st.form("edicao_perfil_suprema"):
+            new_nome_f = st.text_input("Alterar Nome Completo:", value=p.get("nome_completo", p["nome"]))
+            new_pos_t = st.selectbox("Alterar Posição Tática:", ["CA", "SA", "MAT", "VOL", "ZC", "LD", "LE", "GOL"], 
                                      index=["CA", "SA", "MAT", "VOL", "ZC", "LD", "LE", "GOL"].index(p["posicao"]))
-            nova_foto_bin = st.file_uploader("Substituir Identidade Visual (Foto):")
+            nova_ft_bin = st.file_uploader("Trocar Identidade Visual (Foto):")
             
-            if st.form_submit_button("💾 SALVAR ALTERAÇÕES NO SUPABASE"):
-                # Pacote de Mudanças (Metadados)
-                mudancas_supabase = {
-                    "nome_completo": new_nome_full,
-                    "posicao": new_posicao
+            if st.form_submit_button("💾 SINCRONIZAR ALTERAÇÕES COM O BANCO"):
+                # Pacote de Mudanças Flat para o Supabase
+                update_payload = {
+                    "nome_completo": new_nome_f,
+                    "posicao": new_pos_t
                 }
                 
-                # Gestão de Mídia no Servidor
-                if nova_foto_bin:
-                    path_foto = f"fotos_atletas/{id_log}.png"
-                    Image.open(nova_foto_bin).save(path_foto)
-                    mudancas_supabase["foto"] = path_foto
+                # Persistência de Mídia no Filesystem Local (Temp)
+                if nova_ft_bin:
+                    path_ft = f"fotos_atletas/{id_log}.png"
+                    Image.open(nova_ft_bin).save(path_ft)
+                    update_payload["foto"] = path_ft
                 
-                # Recálculo de OVR (Sync com Mudança de Posição)
+                # Recálculo de Overall (Sincronizado com Mudança de Posição)
                 p_copy = p.copy()
-                p_copy.update(mudancas_supabase)
-                mudancas_supabase["overall"] = calcular_ovr_supremo(p_copy)
+                p_copy.update(update_payload)
+                update_payload["overall"] = calcular_ovr_supremo(p_copy)
                 
-                # EXECUÇÃO NO NÚCLEO DE DADOS
-                if salvar_evolucao_treino(id_log, mudancas_supabase):
-                    st.success("Sincronização com Supabase concluída com sucesso!")
+                # Execução via Camada de Dados Suprema
+                if salvar_evolucao_treino(id_log, update_payload):
+                    st.success("Dados re-selados na nuvem com sucesso!")
                     st.rerun()
