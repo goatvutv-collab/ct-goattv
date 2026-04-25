@@ -7,7 +7,14 @@ from datetime import date
 # Garante que o Python encontre os módulos locais
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from database.db_handler import carregar_db, salvar_db, gerenciar_foto_antiga
+# --- MUDANÇA AQUI: IMPORTANDO O NOVO HANDLER DO SUPABASE ---
+from database.db_handler import (
+    carregar_todos_jogadores, 
+    buscar_atleta, 
+    salvar_evolucao_treino, 
+    registrar_novo_atleta
+)
+# Mantendo os outros motores intactos
 from engine.regras import STATS_BASE_PES, STATS_NIVEL, REGRAS_TREINO, REQUISITOS_ESTILOS, REQUISITOS_SKILLS
 from engine.calculos import calcular_ovr_supremo, distribuir_stats_iniciais, calcular_idade
 from interface.visual import gerar_radar, desenhar_personalidade, exibir_laboratorio_skills, definir_arquetipo_master
@@ -17,6 +24,7 @@ st.set_page_config(page_title="GOAT TV - CT SUPREMO 2021", layout="wide", initia
 
 if 'auth' not in st.session_state: st.session_state.auth = False
 if 'portal' not in st.session_state: st.session_state.portal = None
+if 'jogadores' not in st.session_state: st.session_state.jogadores = {}
 
 # --- FLUXO DE ACESSO E REGISTRO ---
 if not st.session_state.auth:
@@ -28,15 +36,19 @@ if not st.session_state.auth:
         st.subheader("🔍 Acessar Registro")
         id_user = st.text_input("ID ATLETA (Ex: GOAT-01):").upper().strip()
         if st.button("ENTRAR NO CT", use_container_width=True):
-            db = carregar_db()
-            if id_user in db:
-                st.session_state.perfil, st.session_state.id_logado, st.session_state.auth = db[id_user], id_user, True
+            # BUSCA NO SUPABASE EM VEZ DO JSON
+            atleta_encontrado = buscar_atleta(id_user)
+            if atleta_encontrado:
+                st.session_state.perfil = atleta_encontrado
+                st.session_state.id_logado = id_user
+                st.session_state.auth = True
                 st.rerun()
             else:
-                st.error("ID não encontrado no banco de dados.")
+                st.error("ID não encontrado no banco de dados da Goat TV.")
 
     with col_reg:
-        if id_user and id_user not in carregar_db():
+        # Checa se o ID já existe no banco de dados global
+        if id_user and not buscar_atleta(id_user):
             with st.form("registro_goat"):
                 st.subheader("📝 Contrato de Estreia (Nascimento Flat 75)")
                 c1, c2 = st.columns(2)
@@ -52,40 +64,55 @@ if not st.session_state.auth:
                 ft = st.file_uploader("FOTO DO PERFIL:")
                 
                 if st.form_submit_button("🚀 INICIAR CARREIRA"):
-                    db = carregar_db()
                     path = f"fotos_atletas/{id_user}.png" if ft else "fotos_atletas/default.png"
                     if ft: Image.open(ft).save(path)
                     
-                    # Cálculo de Idade Real via Calendário
                     idade_atleta = calcular_idade(nasc)
                     
-                    # Construção do Atleta (Nascimento Ponderado)
+                    # Construção do Atleta para o Supabase
                     atleta = {
-                        "nome": nome, "nascimento": nasc.strftime("%Y-%m-%d"), "idade": idade_atleta,
-                        "altura": alt, "peso": peso, "posicao": pos, "dna": dna_ini, "dna_origem": dna_ini,
-                        "foto": path, "status": "Saudável", "habilidades": [],
+                        "nome": id_user, # ID Único para o banco
+                        "nome_completo": nome,
+                        "nascimento": nasc.strftime("%Y-%m-%d"), 
+                        "idade": idade_atleta,
+                        "altura": alt, 
+                        "peso": peso, 
+                        "posicao": pos, 
+                        "dna": dna_ini, 
+                        "dna_origem": dna_ini,
+                        "foto": path, 
+                        "status": "Saudável", 
+                        "habilidades": [],
                         "stats": distribuir_stats_iniciais(dna_ini),
                         "maestria": {m: 0.0 for m in REGRAS_TREINO.keys()},
                         "personalidade": {"Raça": 50, "Técnica": 50, "Altruísmo": 50, "Compostura": 50},
                         "stats_fixos": {"Forma física": 4, "Resistência a lesão": 2, "Pior pé frequência": 2, "Pior pé precisão": 2},
-                        "historico_ovr": [{"idade": idade_atleta, "ovr": 75}]
+                        "historico_ovr": [{"idade": idade_atleta, "ovr": 75}],
+                        "overall": 75.0
                     }
                     
+                    # Cálculo de Overall antes de salvar
                     atleta["overall"] = calcular_ovr_supremo(atleta)
-                    db[id_user] = atleta
-                    salvar_db(db)
-                    st.success("Contrato assinado! Clique em ENTRAR.")
-                    st.rerun()
+                    
+                    # SALVA NO SUPABASE
+                    if registrar_novo_atleta(atleta):
+                        st.success("Contrato assinado e gravado na nuvem! Clique em ENTRAR.")
+                        st.rerun()
 
 # --- ÁREA LOGADA (INTERNA) ---
 else:
-    p = st.session_state.perfil
+    # Sempre busca a versão mais recente do banco para evitar amnésia
+    p = buscar_atleta(st.session_state.id_logado)
     id_log = st.session_state.id_logado
 
-    # === SIDEBAR: SCOUT CARD (O RG DO ATLETA) ===
+    # === SIDEBAR: SCOUT CARD ===
     with st.sidebar:
-        st.markdown(f"<h2 style='text-align: center; color: #ffd700;'>{p['nome'].split()[0]}</h2>", unsafe_allow_html=True)
-        if os.path.exists(p["foto"]): st.image(p["foto"], use_container_width=True)
+        # Pega o primeiro nome do nome completo gravado
+        nome_exibicao = p.get("nome_completo", p["nome"]).split()[0]
+        st.markdown(f"<h2 style='text-align: center; color: #ffd700;'>{nome_exibicao}</h2>", unsafe_allow_html=True)
+        
+        if os.path.exists(p["foto"]): 
+            st.image(p["foto"], use_container_width=True)
         
         st.metric("OVERALL", p["overall"])
         st.divider()
@@ -99,8 +126,9 @@ else:
         
         if p["status"] == "Lesionado":
             if st.button("🧊 TRATAMENTO MÉDICO"):
-                p["status"] = "Saudável"
-                db = carregar_db(); db[id_log] = p; salvar_db(db); st.rerun()
+                # Atualiza no banco
+                salvar_evolucao_treino(id_log, {"status": "Saudável"})
+                st.rerun()
         
         st.divider()
         st.subheader("🎒 Skills Ativas")
@@ -110,13 +138,14 @@ else:
         
         st.divider()
         if st.button("🚪 SAIR DO CT", use_container_width=True):
-            st.session_state.auth = False; st.rerun()
+            st.session_state.auth = False
+            st.rerun()
 
     # --- PAINEL PRINCIPAL ---
-    st.title(f"Centro de Treinamento - {p['nome']}")
+    st.title(f"Centro de Treinamento - {p.get('nome_completo', p['nome'])}")
     tabs = st.tabs(["🎮 Campo de Treino", "🧠 Atleta", "📈 Evolução", "⚙️ Configurações"])
 
-    with tabs[0]: # TREINAMENTO E PORTAIS
+    with tabs[0]: # TREINAMENTO
         if p["status"] == "Lesionado":
             st.error("🚑 BLOQUEADO: Você está no Departamento Médico.")
         else:
@@ -131,7 +160,6 @@ else:
                 st.divider()
                 exibir_laboratorio_skills(p, REQUISITOS_SKILLS)
 
-            # Lógica de Navegação Modular
             st.divider()
             portal = st.session_state.get('portal')
             if portal == "DEF":
@@ -144,7 +172,7 @@ else:
                 from setores.ataque.portal import mostrar_sala_ataque
                 mostrar_sala_ataque()
 
-    with tabs[1]: # ABA ATLETA (FISIOLOGIA E MENTALIDADE)
+    with tabs[1]: # ABA ATLETA
         col_m, col_f = st.columns(2)
         with col_m:
             desenhar_personalidade(p["personalidade"])
@@ -156,7 +184,7 @@ else:
             st.write(f"**Forma Física:** {fixos.get('Forma física', 4)}/8")
             st.write(f"**Resistência a Lesão:** {fixos.get('Resistência a lesão', 2)}/3")
 
-    with tabs[2]: # GRÁFICO DE CRESCIMENTO
+    with tabs[2]: # CRESCIMENTO
         st.subheader("📈 Curva de Evolução Profissional")
         df = pd.DataFrame(p.get("historico_ovr", []))
         if not df.empty:
@@ -165,27 +193,33 @@ else:
             fig.update_traces(line_color='#ffd700')
             st.plotly_chart(fig, use_container_width=True)
 
-    with tabs[3]: # AJUSTES E TROCA DE FOTO
+    with tabs[3]: # AJUSTES
         st.subheader("⚙️ Gerenciar Contrato")
         with st.form("edicao_perfil"):
-            new_nome = st.text_input("Alterar Nome:", value=p["nome"])
+            new_nome_c = st.text_input("Alterar Nome Completo:", value=p.get("nome_completo", p["nome"]))
             new_pos = st.selectbox("Alterar Posição:", ["CA", "SA", "MAT", "VOL", "ZC", "LD", "LE", "GOL"], 
                                    index=["CA", "SA", "MAT", "VOL", "ZC", "LD", "LE", "GOL"].index(p["posicao"]))
-            nova_ft = st.file_uploader("Trocar Foto (Deleta a anterior):")
+            nova_ft = st.file_uploader("Trocar Foto:")
             
-            if st.form_submit_button("💾 SALVAR ALTERAÇÕES"):
-                db = carregar_db()
+            if st.form_submit_button("💾 SALVAR ALTERAÇÕES NO SUPABASE"):
+                # Prepara dicionário de mudanças
+                mudancas = {
+                    "nome_completo": new_nome_c,
+                    "posicao": new_pos
+                }
+                
                 if nova_ft:
-                    gerenciar_foto_antiga(p["foto"]) # Limpa o lixo
+                    # Lógica de foto local mantida como você pediu
                     path = f"fotos_atletas/{id_log}.png"
                     Image.open(nova_ft).save(path)
-                    db[id_log]["foto"] = path
+                    mudancas["foto"] = path
                 
-                db[id_log]["nome"] = new_nome
-                db[id_log]["posicao"] = new_pos
-                db[id_log]["overall"] = calcular_ovr_supremo(db[id_log]) # Recalcula OVR se mudou a posição
+                # Recalcula OVR baseado no estado atual para salvar no banco
+                p_temp = p.copy()
+                p_temp.update(mudancas)
+                mudancas["overall"] = calcular_ovr_supremo(p_temp)
                 
-                salvar_db(db)
-                st.session_state.perfil = db[id_log]
-                st.success("Perfil atualizado com sucesso!")
-                st.rerun()
+                # GRAVA NO SUPABASE
+                if salvar_evolucao_treino(id_log, mudancas):
+                    st.success("Dados sincronizados com a nuvem!")
+                    st.rerun()
