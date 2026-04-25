@@ -10,7 +10,7 @@ import plotly.graph_objects as go
 os.makedirs("fotos_atletas", exist_ok=True)
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-# --- INTEGRAÇÃO COM SUPABASE ---
+# --- INTEGRAÇÃO COM O MOTOR DE DADOS SUPREMO (SUPABASE) ---
 from database.db_handler import (
     buscar_atleta, 
     salvar_evolucao_treino, 
@@ -22,7 +22,7 @@ from interface.visual import (
     gerar_radar, 
     definir_arquetipo_master, 
     desenhar_personalidade, 
-    exibir_laboratorio_skills 
+    exibir_laboratorio_skills
 )
 
 # Configurações de Elite
@@ -42,9 +42,9 @@ if 'auth' not in st.session_state: st.session_state.auth = False
 if 'portal' not in st.session_state: st.session_state.portal = None
 if 'id_logado' not in st.session_state: st.session_state.id_logado = None
 
-# --- 1. ACESSO E REGISTRO (DNA VETERANO) ---
+# --- 1. ACESSO E REGISTRO ---
 if not st.session_state.auth:
-    st.markdown("<h1 style='text-align: center; color: #ffd700;'>🏟️ CT GOAT TV - VERSÃO SUPREMA</h1>", unsafe_allow_html=True)
+    st.markdown("<h1 style='text-align: center; color: #ffd700;'>🏟️ CT GOAT TV - ALPHA UNIFICADO</h1>", unsafe_allow_html=True)
     col_log, col_reg = st.columns([1, 1.5])
     
     with col_log:
@@ -92,82 +92,122 @@ if not st.session_state.auth:
                     if registrar_novo_atleta(atleta_payload):
                         st.success("Contrato Blindado! Acesse com seu ID.")
 
-# --- 2. ÁREA INTERNA (SCOUT CARD COMPLETO) ---
+# --- 2. ÁREA INTERNA (SCOUT CARD PREMIUM) ---
 else:
     p = buscar_atleta(st.session_state.id_logado)
     id_log = st.session_state.id_logado
+    habilidades_atuais = p.get("habilidades", [])
+
+    # LÓGICA DE GRADUAÇÃO AUTOMÁTICA (O que estava faltando!)
+    maestrias = p.get("maestria", {})
+    mudou_habilidade = False
+    for skill, score in maestrias.items():
+        if score >= 100 and skill not in habilidades_atuais:
+            habilidades_atuais.append(skill)
+            mudou_habilidade = True
+    
+    if mudou_habilidade:
+        salvar_evolucao_treino(id_log, {"habilidades": habilidades_atuais})
+        st.toast(f"🔥 NOVO TALENTO MASTERIZADO!", icon="🏆")
+        st.rerun()
 
     with st.sidebar:
         st.markdown("<h2 style='text-align: center;'>📄 SCOUT CARD</h2>", unsafe_allow_html=True)
         if os.path.exists(p.get("foto", "")): st.image(p["foto"], use_container_width=True)
         else: st.image(IMG_DEFAULT, use_container_width=True)
+
         st.metric("OVERALL", f"{p['overall']:.1f}")
-        st.write(f"**DNA:** {p['dna']} | **STATUS:** {p.get('status', 'Saudável')}")
-        st.write(f"**BIOMETRIA:** {p['peso']}kg | {p['altura']}m")
+        
+        # VISUAL DOS STATUS (COM EMOJIS RESTAURADOS)
+        st.write(f"**🧬 DNA:** {p['dna']}")
+        status_cor = "🟢" if p.get('status') == "Saudável" else "🔴"
+        st.write(f"**🏥 STATUS:** {status_cor} {p.get('status', 'Saudável')}")
+        st.write(f"**⚖️ BIOMETRIA:** {p['peso']}kg | {p['altura']}m")
+
         st.divider()
         st.subheader("🎒 Skills Ativas")
-        if p.get("habilidades"):
-            for sk in p["habilidades"]:
-                st.markdown(f"<div style='background-color:#ffd700; color:black; padding:5px; border-radius:4px; margin-bottom:5px; font-weight:bold; text-align:center;'>{sk.upper()}</div>", unsafe_allow_html=True)
+        if habilidades_atuais:
+            for sk in habilidades_atuais:
+                st.markdown(f"""<div style='background-color:#ffd700; color:black; padding:5px; border-radius:4px; 
+                margin-bottom:5px; font-weight:bold; text-align:center; border: 1px solid #b8860b; font-size:0.9em;'>{sk.upper()}</div>""", unsafe_allow_html=True)
+        else: st.caption("Nenhum talento dominado.")
+        
         st.divider()
         st.subheader("📊 Maestrias (DNA)")
-        for m, val in p.get("maestria", {}).items():
+        for m, val in maestrias.items():
             if val > 0:
                 st.caption(f"{m}: {val:.1f}%"); st.progress(min(val/100, 1.0))
-        if st.button("🚪 SAIR"): st.session_state.auth = False; st.rerun()
 
-    # --- 3. PAINEL CENTRAL (ÔMEGA) ---
+        if st.button("🚪 SAIR DO CT"): st.session_state.auth = False; st.rerun()
+
+    # --- 3. PAINEL CENTRAL (TABS COM EMOJIS) ---
     st.title(f"CT GOAT TV - Bem-vindo, {p.get('nome_completo', p['nome']).split()[0]}")
     tabs = st.tabs(["🎮 Campo de Treino", "🧠 Atleta", "📈 Evolução", "⚙️ Configurações"])
 
-    with tabs[0]: # TREINO E LABORATÓRIO (RESTURADO!)
+    with tabs[0]: # TREINO E LAB
         col_radar, col_menu = st.columns([1.5, 1])
         with col_radar: st.plotly_chart(gerar_radar(p["stats"]), use_container_width=True)
         with col_menu:
             st.subheader("Setores de Ação")
             c1, c2 = st.columns(2)
-            if c1.button("🛡️ DEFESA"): st.session_state.portal = "DEF"
-            if c1.button("🎯 ATAQUE"): st.session_state.portal = "ATQ"
-            if c2.button("⚙️ MEIO"): st.session_state.portal = "MEI"
-            if c2.button("🧤 GOLEIRO"): st.session_state.portal = "GK"
+            if c1.button("🛡️ DEFESA", use_container_width=True): st.session_state.portal = "DEF"
+            if c1.button("🎯 ATAQUE", use_container_width=True): st.session_state.portal = "ATQ"
+            if c2.button("⚙️ MEIO", use_container_width=True): st.session_state.portal = "MEI"
+            if c2.button("🧤 GOLEIRO", use_container_width=True): st.session_state.portal = "GK"
             st.divider()
-            # O LABORATÓRIO DE SKILLS (A VOLTA DA COMPLEXIDADE)
             exibir_laboratorio_skills(p, REQUISITOS_SKILLS)
 
-    with tabs[1]: # CÉREBRO E PERSONALIDADE
-        st.subheader("🧠 Matriz de Personalidade e Fisiologia")
+        st.divider()
+        portal = st.session_state.get('portal')
+        if portal == "DEF": from setores.defesa.portal import mostrar_sala_defesa; mostrar_sala_defesa()
+        elif portal == "MEI": from setores.meio_campo.portal import mostrar_sala_meio; mostrar_sala_meio()
+        elif portal == "ATQ": from setores.ataque.portal import mostrar_sala_ataque; mostrar_sala_ataque()
+        elif portal == "GK": 
+            try: from setores.goleiro.portal import mostrar_sala_goleiro; mostrar_sala_goleiro()
+            except: st.warning("Muralha em construção.")
+
+    with tabs[1]: # CÉREBRO E FISIOLOGIA (EMOJIS RESTAURADOS!)
+        st.subheader("🧠 Matriz de Personalidade")
         c1, c2 = st.columns(2)
         with c1:
-            for k, v in p.get("personalidade", {}).items():
-                st.write(f"**{k}:** {v}%"); st.progress(v/100)
+            pers = p.get("personalidade", {})
+            st.write(f"**💪 Raça:** {pers.get('Raça', 50)}%")
+            st.progress(pers.get('Raça', 50)/100)
+            st.write(f"**🧠 Técnica:** {pers.get('Técnica', 50)}%")
+            st.progress(pers.get('Técnica', 50)/100)
+            st.write(f"**🤝 Altruísmo:** {pers.get('Altruísmo', 50)}%")
+            st.progress(pers.get('Altruísmo', 50)/100)
+            st.write(f"**🧘 Compostura:** {pers.get('Compostura', 50)}%")
+            st.progress(pers.get('Compostura', 50)/100)
         with c2:
             st.subheader("📍 Domínio de Posição")
-            for pos_n, nivel in p.get("posicoes", {}).items(): st.write(f"**{pos_n}:** {nivel}")
+            for pos_n, nivel in p.get("posicoes", {}).items():
+                st.write(f"**{pos_n}:** `{nivel}`")
             st.divider()
-            f = p.get("stats_fixos", {})
-            st.write(f"**Pior Pé:** {f.get('Pior pé frequência', 2)}/4 | **Forma Física:** {f.get('Forma física', 4)}/8")
+            fixos = p.get("stats_fixos", {})
+            st.write(f"**🦶 Pior Pé:** {fixos.get('Pior pé frequência', 2)}/4 (Freq) | {fixos.get('Pior pé precisão', 2)}/4 (Prec)")
+            st.write(f"**🔋 Forma Física:** {fixos.get('Forma física', 4)}/8")
 
-    with tabs[2]: # EVOLUÇÃO (LINHA ROSA)
-        st.subheader("📊 Folha de Evolução")
+    with tabs[2]: # EVOLUÇÃO
+        st.subheader("📊 Folha de Performance Profissional")
         df = pd.DataFrame(p.get("historico_ovr", []))
         if not df.empty:
             df["esperado"] = df["ovr"].iloc[0] + (df["idade"] - df["idade"].iloc[0]) * 1.2
             fig = px.line(df, x="idade", y=["ovr", "esperado"], color_discrete_sequence=["#ffd700", "#ff00ff"])
             st.plotly_chart(fig, use_container_width=True)
 
-    with tabs[3]: # REEDIÇÃO SUPREMA (FOTO + PESO + ALTURA)
+    with tabs[3]: # REEDIÇÃO SUPREMA
         st.subheader("⚙️ Reedição de Perfil")
         with st.form("edit_total"):
-            new_n = st.text_input("Nome:", value=p.get("nome_completo", p["nome"]))
+            new_n = st.text_input("Nome Completo:", value=p.get("nome_completo", p["nome"]))
             c_e1, c_e2 = st.columns(2)
             new_p = c_e1.number_input("Peso (kg):", value=float(p["peso"]))
             new_a = c_e2.number_input("Altura (m):", value=float(p["altura"]))
             new_pos = st.selectbox("Posição:", LISTA_POSICOES_SUPREMAS, index=LISTA_POSICOES_SUPREMAS.index(p["posicao"]))
-            nova_ft = st.file_uploader("Trocar Foto:")
+            nova_ft = st.file_uploader("Trocar Foto Oficial:")
             if st.form_submit_button("💾 SALVAR ALTERAÇÕES SUPREMAS"):
                 mudancas = {"nome_completo": new_n, "peso": new_p, "altura": new_a, "posicao": new_pos}
                 if nova_ft:
                     path = f"fotos_atletas/{id_log}.png"; Image.open(nova_ft).save(path); mudancas["foto"] = path
                 p.update(mudancas); mudancas["overall"] = calcular_ovr_supremo(p)
                 if salvar_evolucao_treino(id_log, mudancas): st.success("Perfil re-selado!"); st.rerun()
-                
