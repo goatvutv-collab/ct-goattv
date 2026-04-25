@@ -48,7 +48,7 @@ if not st.session_state.auth:
     col_log, col_reg = st.columns([1, 1.5])
     
     with col_log:
-        st.subheader("🔍 Acessar Registros")
+        st.subheader("🔍 Acessar CT")
         id_user = st.text_input("ID ATLETA:").upper().strip()
         if st.button("ENTRAR NO CT", use_container_width=True):
             atleta = buscar_atleta(id_user)
@@ -60,7 +60,7 @@ if not st.session_state.auth:
     with col_reg:
         if id_user and not buscar_atleta(id_user):
             with st.form("registro_supremo"):
-                st.subheader("📝 Contrato de Estreia (Complexo)")
+                st.subheader("📝 Contrato de Estreia (Piso por Idade)")
                 n_completo = st.text_input("NOME COMPLETO:")
                 i_reg = st.number_input("IDADE:", 15, 45, 17)
                 t_origem = st.radio("ORIGEM:", ["Veterano (Já Jogo)", "Iniciante (Promessa)"])
@@ -71,6 +71,7 @@ if not st.session_state.auth:
                 ft = st.file_uploader("FOTO OFICIAL DO PERFIL:")
                 
                 if st.form_submit_button("🚀 INICIAR CARREIRA"):
+                    # Lógica de Piso OVR (Bônus Veterano do Macarrão)
                     base_ovr = 75.0 if i_reg <= 18 else (80.0 if i_reg <= 22 else 85.0)
                     if t_origem == "Veterano (Já Jogo)": base_ovr += 2.0
                     path = f"fotos_atletas/{id_user}.png" if ft else "fotos_atletas/default.png"
@@ -90,30 +91,29 @@ if not st.session_state.auth:
                     }
                     atleta_payload["overall"] = calcular_ovr_supremo(atleta_payload)
                     if registrar_novo_atleta(atleta_payload):
-                        st.success("Contrato assinado! Entre com seu ID.")
+                        st.success("Contrato Blindado! Acesse com seu ID.")
 
 # --- 2. ÁREA INTERNA (SCOUT CARD PREMIUM) ---
 else:
     p = buscar_atleta(st.session_state.id_logado)
     id_log = st.session_state.id_logado
-    sk_atuais = p.get("habilidades", [])
+    habilidades_atuais = p.get("habilidades", [])
     maestrias = p.get("maestria", {})
 
-    # === LÓGICA DE GRADUAÇÃO AUTOMÁTICA (RESTAURADA E TURBINADA) ===
+    # === LÓGICA DE GRADUAÇÃO SUPREMA (MANDA PRA SIDEBAR) ===
     mudou_bag = False
     for skill, score in maestrias.items():
-        if score >= 100 and skill not in sk_atuais:
-            sk_atuais.append(skill)
+        if score >= 100 and skill not in habilidades_atuais:
+            habilidades_atuais.append(skill)
             mudou_bag = True
     
     if mudou_bag:
-        salvar_evolucao_treino(id_log, {"habilidades": sk_atuais})
-        st.toast(f"🏆 NOVO TALENTO NA BAG: {sk_atuais[-1].upper()}!", icon="🔥")
+        salvar_evolucao_treino(id_log, {"habilidades": habilidades_atuais})
+        st.toast(f"🏆 NOVO TALENTO MASTERIZADO: {habilidades_atuais[-1].upper()}!", icon="🔥")
         st.rerun()
 
     # === SIDEBAR: SCOUT CARD (O MELHOR VISUAL DE AMBOS) ===
     with st.sidebar:
-        # Nome centrado e dourado como no backup
         primeiro_nome = p.get('nome_completo', p['nome']).split()[0]
         st.markdown(f"<h2 style='text-align: center; color: #ffd700;'>{primeiro_nome}</h2>", unsafe_allow_html=True)
         
@@ -122,7 +122,7 @@ else:
 
         st.metric("OVERALL", f"{p['overall']:.1f}")
         
-        # STATUS COM EMOJIS (RESTAURADOS!)
+        # STATUS COM EMOJIS RESTAURADOS
         st.write(f"**🧬 DNA:** {p['dna']}")
         status_emoji = "🟢" if p.get('status') == "Saudável" else "🔴"
         st.write(f"**🏥 STATUS:** {status_emoji} {p.get('status', 'Saudável')}")
@@ -130,8 +130,8 @@ else:
 
         st.divider()
         st.subheader("🎒 Skills Ativas")
-        if sk_atuais:
-            for sk in sk_atuais:
+        if habilidades_atuais:
+            for sk in habilidades_atuais:
                 st.markdown(f"""<div style='background-color:#ffd700; color:black; padding:5px; border-radius:4px; 
                 margin-bottom:5px; font-weight:bold; text-align:center; border: 1px solid #b8860b; font-size:0.85em;'>{sk.upper()}</div>""", unsafe_allow_html=True)
         else: st.caption("Nenhum talento dominado.")
@@ -146,7 +146,6 @@ else:
             st.session_state.auth = False; st.rerun()
 
     # === 3. PAINEL CENTRAL (SISTEMA ÔMEGA) ===
-    st.title(f"Centro de Treinamento - {p.get('nome_completo', p['nome'])}")
     tabs = st.tabs(["🎮 Campo de Treino", "🧠 Atleta", "📈 Evolução", "⚙️ Configurações"])
 
     with tabs[0]: # TREINO E LABORATÓRIO VISUAL (FOTO 2)
@@ -165,7 +164,7 @@ else:
                 if c2.button("⚙️ MEIO", use_container_width=True): st.session_state.portal = "MEI"
                 if c2.button("🧤 GOLEIRO", use_container_width=True): st.session_state.portal = "GK"
                 st.divider()
-                # === LABORATÓRIO VISUAL (RESTAURADO!) ===
+                # === LABORATÓRIO VISUAL RESTAURADO! ===
                 exibir_laboratorio_skills(p, REQUISITOS_SKILLS)
 
             st.divider()
@@ -188,14 +187,15 @@ else:
             st.write(f"**🧘 Compostura:** {pers.get('Compostura', 50)}%"); st.progress(pers.get('Compostura', 50)/100)
         with c2:
             st.subheader("📍 Domínio de Posição")
-            for pos_n, nivel in p.get("posicoes", {}).items(): st.write(f"**{pos_n}:** `{nivel}`")
+            for pos_n, nivel in p.get("posicoes", {}).items():
+                st.write(f"**{pos_n}:** `{nivel}`")
             st.divider()
             fixos = p.get("stats_fixos", {})
-            st.write(f"**🦶 Pior Pé:** {fixos.get('Pior pé frequência', 2)}/4 (Freq) | {fixos.get('Pior pé precisão', 2)}/4 (Prec)")
+            st.write(f"**🦶 Pior Pé:** {fixos.get('Pior pé frequência', 2)}/4 | {fixos.get('Pior pé precisão', 2)}/4")
             st.write(f"**🔋 Forma Física:** {fixos.get('Forma física', 4)}/8")
 
     with tabs[2]: # EVOLUÇÃO (LINHA ROSA VS DOURADA)
-        st.subheader("📊 Folha de Evolução")
+        st.subheader("📊 Performance Profissional")
         df_evol = pd.DataFrame(p.get("historico_ovr", []))
         if not df_evol.empty:
             df_evol["esperado"] = df_evol["ovr"].iloc[0] + (df_evol["idade"] - df_evol["idade"].iloc[0]) * 1.2
@@ -213,14 +213,15 @@ else:
             nova_ft = st.file_uploader("Substituir Foto Oficial:")
             
             if st.form_submit_button("💾 SALVAR ALTERAÇÕES SUPREMAS"):
-                mudancas = {"nome_completo": new_n, "peso": new_p, "altura": new_a, "posicao": new_pos}
+                mudanças = {"nome_completo": new_n, "peso": new_p, "altura": new_a, "posicao": new_pos}
                 if nova_ft:
                     path = f"fotos_atletas/{id_log}.png"
                     Image.open(nova_ft).save(path)
-                    mudancas["foto"] = path
+                    mudanças["foto"] = path
                 
-                p.update(mudancas)
-                mudancas["overall"] = calcular_ovr_supremo(p)
+                # Recálculo de OVR Realista baseado na nova biometria
+                p.update(mudanças)
+                mudanças["overall"] = calcular_ovr_supremo(p)
                 
-                if salvar_evolucao_treino(id_log, mudancas):
-                    st.success("Contrato re-selado na nuvem!"); st.rerun()
+                if salvar_evolucao_treino(id_log, mudanças):
+                    st.success("Perfil re-selado na nuvem!"); st.rerun()
