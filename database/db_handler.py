@@ -2,24 +2,23 @@ import streamlit as st
 import os
 from supabase import create_client
 
-# --- CONEXÃO BLINDADA (MULTI-AMBIENTE: RENDER + LOCAL) ---
-# Prioriza variáveis de ambiente do servidor (Render) para máxima segurança
+# --- CONEXÃO BLINDADA (RENDER + LOCAL) ---
 URL = os.environ.get("SUPABASE_URL") or (st.secrets.get("SUPABASE_URL") if "SUPABASE_URL" in st.secrets else None)
 KEY = os.environ.get("SUPABASE_KEY") or (st.secrets.get("SUPABASE_KEY") if "SUPABASE_KEY" in st.secrets else None)
 
 if not URL or not KEY:
-    st.error("⚠️ FALHA CRÍTICA DE INFRAESTRUTURA: Chaves de autenticação não detectadas no ambiente.")
+    st.error("⚠️ FALHA DE CONEXÃO: Chaves do Supabase não encontradas no ambiente do Render.")
     st.stop()
 
 # Inicialização do Cliente Oficial Supabase
 supabase = create_client(URL, KEY)
 
-# --- NÚCLEO DE TRATAMENTO DE DADOS (MAPPER) ---
+# --- NÚCLEO DE TRADUÇÃO (MAPPER) ---
 
 def mapear_stats_para_radar(row):
     """
-    Complexidade de Reconstrução: Pega as colunas 'flat' do SQL e remonta 
-    o dicionário 'stats' com as chaves exatas que a interface visual utiliza.
+    Complexidade de Reconstrução: Traduz as colunas 'flat' do SQL para os nomes 
+    que o Radar do PES 2021 espera na interface visual.
     """
     return {
         "Finalização": row.get("finalizacao", 70.0),
@@ -39,57 +38,44 @@ def mapear_stats_para_radar(row):
         "Alcance GK": row.get("alcance_gk", 70.0)
     }
 
-# --- FUNÇÕES DE MEMÓRIA E PERSISTÊNCIA ---
+# --- FUNÇÕES DE PERSISTÊNCIA ---
 
 def carregar_todos_jogadores():
-    """
-    Recuperação Massiva: Busca a totalidade dos atletas registrados e 
-    reprocessa cada objeto para compatibilidade com o Radar Plotly.
-    """
+    """Busca a federação inteira e reconstrói os objetos para o App."""
     try:
         res = supabase.table("jogadores").select("*").execute()
-        if not res.data:
-            return {}
-            
         jogadores_formatados = {}
         for atleta in res.data:
-            # Reconstrução do objeto aninhado 'stats'
             atleta["stats"] = mapear_stats_para_radar(atleta)
             jogadores_formatados[atleta['nome']] = atleta
-            
         return jogadores_formatados
     except Exception as e:
-        st.error(f"❌ Erro de Lógica ao Carregar Federação: {e}")
+        st.error(f"❌ Erro ao carregar federação: {e}")
         return {}
 
 def buscar_atleta(nome_id):
-    """
-    Query de Precisão: Localiza um atleta único pelo ID e reconstrói 
-    sua integridade de dados para exibição no Scout Card.
-    """
+    """Localiza o atleta e reconstrói o Scout Card com Radar."""
     try:
         id_limpo = nome_id.upper().strip()
         res = supabase.table("jogadores").select("*").eq("nome", id_limpo).execute()
-        
         if res.data:
             atleta = res.data[0]
             atleta["stats"] = mapear_stats_para_radar(atleta)
             return atleta
         return None
     except Exception as e:
-        print(f"Falha na consulta individual: {e}")
+        print(f"Erro na busca: {e}")
         return None
 
 def registrar_novo_atleta(atleta_dict):
     """
-    Flattening Complexo: Converte a estrutura de árvore do App para o 
-    esquema de colunas relacionais do SQL Supremo da Goat TV.
+    Flattening Complexo: Transforma o dicionário aninhado do App 
+    nas colunas planas do SQL Supremo, incluindo Maestria e DNA Origem.
     """
     try:
-        # Extração de Stats para desmembramento em colunas
+        # Extração de Stats para desmembramento
         stats_app = atleta_dict.pop("stats", {})
         
-        # Construção do Payload Robusto
         payload = {
             "nome": atleta_dict.get("nome").upper().strip(),
             "nome_completo": atleta_dict.get("nome_completo"),
@@ -99,20 +85,18 @@ def registrar_novo_atleta(atleta_dict):
             "peso": atleta_dict.get("peso"),
             "posicao": atleta_dict.get("posicao"),
             "dna": atleta_dict.get("dna"),
-            "dna_origem": atleta_dict.get("dna_origem"),
+            "dna_origem": atleta_dict.get("dna_origem"), # Preservado do primeiro código
             "foto": atleta_dict.get("foto"),
             "status": atleta_dict.get("status", "Saudável"),
             "overall": atleta_dict.get("overall", 75.0),
             
-            # Mapeamento Individual de Colunas (Ataque)
+            # --- MAPEAMENTO FLAT (Stats PES -> SQL) ---
             "finalizacao": stats_app.get("Finalização", 70.0),
             "talento_ofensivo": stats_app.get("Talento Ofensivo", 70.0),
             "chute_colocado": stats_app.get("Chute Colocado", 70.0),
             "drible": stats_app.get("Drible", 70.0),
             "velocidade": stats_app.get("Velocidade", 70.0),
             "aceleracao": stats_app.get("Aceleração", 70.0),
-            
-            # Mapeamento (Meio/Defesa/GK)
             "passe_rasteiro": stats_app.get("Passe Rasteiro", 70.0),
             "controle_bola": stats_app.get("Controle de Bola", 70.0),
             "resistencia": stats_app.get("Resistência", 70.0),
@@ -123,8 +107,9 @@ def registrar_novo_atleta(atleta_dict):
             "firmeza_gk": stats_app.get("Firmeza GK", 70.0),
             "alcance_gk": stats_app.get("Alcance GK", 70.0),
             
-            # Injeção de Dados Complexos (JSONB)
+            # --- CAMPOS JSONB (Memória de Longo Prazo) ---
             "habilidades": atleta_dict.get("habilidades", []),
+            "maestria": atleta_dict.get("maestria", {}), # Vital para o Laboratório
             "personalidade": atleta_dict.get("personalidade", {}),
             "stats_fixos": atleta_dict.get("stats_fixos", {}),
             "historico_ovr": atleta_dict.get("historico_ovr", [])
@@ -133,18 +118,15 @@ def registrar_novo_atleta(atleta_dict):
         supabase.table("jogadores").insert(payload).execute()
         return True
     except Exception as e:
-        st.error(f"❌ Erro Crítico no Registro de Contrato: {e}")
+        st.error(f"❌ Erro Crítico no Registro: {e}")
         return False
 
 def salvar_evolucao_treino(nome_id, atributos_novos):
-    """
-    Sincronização de Progresso: Atualiza de forma atômica os atributos 
-    que sofreram mutação durante as sessões de treino.
-    """
+    """Sincroniza mudanças de stats, skills ou status no banco."""
     try:
         id_atleta = nome_id.upper().strip()
         supabase.table("jogadores").update(atributos_novos).eq("nome", id_atleta).execute()
         return True
     except Exception as e:
-        st.error(f"❌ Falha na Gravação de Evolução: {e}")
+        st.error(f"❌ Erro na Gravação de Evolução: {e}")
         return False
